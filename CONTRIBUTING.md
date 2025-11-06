@@ -8,7 +8,7 @@ We’re glad you’re here! This guide explains **how to propose ideas, submit c
 
 ## 1. Before You Start
 
-- Read the [Project Overview](../README.md) and [Roadmap](../docs/roadmap.md)
+- Read the [Project Overview](./README.md) and [Roadmap](../docs/roadmap.md)
 - Review the [Architecture Overview](../docs/architecture-overview.md)
 - Join or open a **GitHub Discussion** to share your ideas before writing code
 
