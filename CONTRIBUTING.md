@@ -29,7 +29,7 @@ All changes — including new modules, API updates, or configuration designs —
 
 3. **Create a Pull Request (PR)**:
    - Reference the issue (`Closes #<issue_number>`)
-   - Follow the [Architecture Rules](../docs/contribution-rules.md)
+   - Follow the [Architecture Rules](./docs/contribution-rules.md)
    - Request a **review from the architecture or core team**
 
 ---
