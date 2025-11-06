@@ -66,4 +66,4 @@ Consistent contributors may be invited as **maintainers** for specific modules.
 
 ---
 
-Thank you for helping make PDSNO better, smarter, and more open.
+Thank you for helping make PDSNO better, smarter, and more open..
