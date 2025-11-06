@@ -1,0 +1,29 @@
+name: Feature Request
+description: Suggest a new idea for PDSNO
+title: "[FEATURE] <short description>"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feature Request
+
+        Please describe your idea clearly and concisely.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Describe the feature
+      description: What problem does this feature solve?
+      placeholder: "Example: Allow dynamic device discovery using SNMP triggers"
+    validations:
+      required: true
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Proposed implementation
+      description: How would you like to see this implemented?
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add any other context, screenshots, or examples here.

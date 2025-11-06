@@ -1,0 +1,40 @@
+name: Architecture Proposal
+description: Suggest a new architecture concept, change, or enhancement for PDSNO
+title: "[ARCH] <short description>"
+labels: ["architecture"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Proposal Summary
+      description: Short description of the idea or problem.
+      placeholder: Describe your proposal briefly here.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why this change is necessary or beneficial.
+      placeholder: Explain the reasoning and goals behind this idea.
+
+  - type: checkboxes
+    id: affected_components
+    attributes:
+      label: Affected Components
+      options:
+        - label: Global Controller
+        - label: Regional Controller
+        - label: Local Controller
+        - label: Discovery Engine
+        - label: Communication Layer
+        - label: Data Layer
+        - label: Other
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: 📎 Additional Context
+      description: (Optional) Add diagrams, YAML examples, or relevant references.
+      placeholder: Include links or images to illustrate the concept.
