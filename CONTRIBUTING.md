@@ -47,7 +47,7 @@ All changes — including new modules, API updates, or configuration designs —
 
 Every new module or function **must align** with the PDSNO orchestration hierarchy and communication model.
 
-See [Architecture Review Rules](../docs/contribution-rules.md) for details.
+See [Architecture Review Rules](./docs/contribution-rules.md) for details.
 
 ---
 
