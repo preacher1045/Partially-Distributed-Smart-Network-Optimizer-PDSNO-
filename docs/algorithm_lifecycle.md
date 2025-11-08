@@ -43,6 +43,43 @@ class AlgorithmBase:
         """Perform cleanup and return output data."""
         raise NotImplementedError
 ```
+---
+### **Algorithm Lifecycle (Flow Overview)**
+          +-------------------------+
+          |     CONTROLLER LAYER    |
+          |-------------------------|
+          | Loads algorithm module  |
+          | Passes context data     |
+          +-----------+-------------+
+                      |
+                      v
+          +-------------------------+
+          |   AlgorithmBase Class   |
+          +-------------------------+
+          |   initialize()          |   -->  Prepare: validate inputs,
+          |                         |        load configs, allocate resources
+          +-----------+-------------+
+                      |
+                      v
+          +-------------------------+
+          |     execute()           |   -->  Core Logic:
+          |                         |        analyze data, make decisions,
+          |                         |        run computations
+          +-----------+-------------+
+                      |
+                      v
+          +-------------------------+
+          |     finalize()          |   -->  Cleanup: store results,
+          |                         |        free memory, return outputs
+          +-----------+-------------+
+                      |
+                      v
+          +-------------------------+
+          | Controller receives     |
+          | output & triggers next  |
+          | orchestration action    |
+          +-------------------------+
+---
 
 ---
 
