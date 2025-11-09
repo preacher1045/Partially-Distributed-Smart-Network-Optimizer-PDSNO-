@@ -79,6 +79,17 @@ class AlgorithmBase:
           | output & triggers next  |
           | orchestration action    |
           +-------------------------+
+
+### Flow Summary
+
+**Controller** → Initialize: Sends context (network data, parameters, configs).
+
+**Algorithm** → Execute: Performs its primary logic and returns results.
+
+**Algorithm** → Finalize: Cleans up and hands results back.
+
+**Controller** → Next Step: Uses results for policy decisions or orchestration actions.
+
 ---
 
 ---
@@ -87,7 +98,7 @@ class AlgorithmBase:
 
 ```python
 # congestion_algorithm.py
-from pdsno.algorithms.algorithm_base import AlgorithmBase
+from PDSNO.Base.base_class import Base
 
 class CongestionMitigationAlgorithm(AlgorithmBase):
     def initialize(self, context):
