@@ -1,10 +1,10 @@
-# 🗺️ PDSNO Detailed Roadmap
+# PDSNO Detailed Roadmap
 
-This document outlines the long-term development vision for **PDSNO (Partially Distributed Smart Network Orchestrator)** — a next-generation, intelligent, and partially distributed orchestration system.
+This document outlines the long-term development vision for **PDSNO (Partially Distributed Software-Defined Network Orchestrator)** — a next-generation, intelligent, and partially distributed orchestration system.
 
 ---
 
-## ⚙️ Current Phase: Design & Architecture (Proof of Concept in Python)
+## Current Phase: Design & Architecture (Proof of Concept in Python)
 - Defining hierarchical controller logic (Global, Regional, Local)
 - Designing discovery engine and communication interfaces
 - Implementing YAML-based configuration and logging system
@@ -13,7 +13,7 @@ This document outlines the long-term development vision for **PDSNO (Partially D
 
 ---
 
-## 🚀 Planned Development Directions
+## Planned Development Directions
 
 | **Category** | **Planned Goal / Direction** | **Purpose / Benefit** |
 |---------------|-----------------------------|------------------------|

@@ -1,5 +1,5 @@
 
-# PDSNO — Partially Distributed Smart Network Orchestrator
+# PDSNO — Partially Distributed Software-Defined Network Orchestrator
 
 > **An intelligent, modular, and scalable orchestration framework for distributed networks.**
 > Designed to unify global, regional, and local control — making modern networks adaptive, efficient, and self-optimizing.

@@ -1,6 +1,6 @@
 # Contributing to PDSNO
 
-Welcome to **PDSNO (Partially Distributed Smart Network Orchestrator)** — an open-source project designed to build the foundation of next-generation intelligent network orchestration.
+Welcome to **PDSNO (Partially Distributed Software-Defined Network Orchestrator)** — an open-source project designed to build the foundation of next-generation intelligent network orchestration.
 
 We’re glad you’re here! This guide explains **how to propose ideas, submit changes, and stay aligned with the system’s architecture**.
 
@@ -31,6 +31,21 @@ All changes — including new modules, API updates, or configuration designs —
    - Reference the issue (`Closes #<issue_number>`)
    - Follow the [Architecture Rules](./docs/contribution-rules.md)
    - Request a **review from the architecture or core team**
+
+## 2b. Contribution workflow
+**1. Fork the repo (creates their copy)**
+**2. Clone locally**
+[git clone https://github.com/preacher1045/Partially-Distributed-Smart-Network-Optimizer-PDSNO-.git]
+
+**3. Create a branch**
+git checkout -b feature/dynamic-validation
+
+**4. Make changes**
+**5. Commit & push**
+git push origin feature/dynamic-validation
+
+**6. Open a Pull Request (PR)**
+
 
 ---
 
