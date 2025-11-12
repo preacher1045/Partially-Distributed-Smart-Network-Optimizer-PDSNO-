@@ -106,4 +106,6 @@ Below is a high-level overview of the planned directions and system evolution:
 > * Developing controller communication interfaces.
 > * Establishing YAML-based configuration and logging systems.
 
+For more details go to: [`PROJECT_OVERVIEW.md`](./docs/PROJECT_OVERVIEW.md)
+
 ---
