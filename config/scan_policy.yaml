@@ -1,0 +1,80 @@
+policy_id: "region1-west-scan-v1"  # Assigned by Regional or Global Controller
+version: 1.0
+
+applies_to:
+  controller_tier: "local"
+  region: "auto"  # auto-detected by regional controller
+
+# NETWORK SCOPE — where the local controller is allowed to scan
+allowed_networks:
+  static:  # Explicitly approved networks
+    - interface: "eth0"
+      cidr: "10.10.20.0/24"
+      vrf: "default"
+      vlan: null
+    - interface: "eth1"
+      cidr: "192.168.50.0/25"
+      vrf: "mgmt"
+      vlan: 100
+
+  dynamic:  # Networks dynamically pushed by Regional Controller after validation
+    allow_dynamic_assignment: true
+    constraints:
+      max_dynamic_ranges: 3
+      require_signed_assignment: true
+
+# PROTOCOLS — what scanning methods are allowed
+allowed_protocols:
+  - "arp"
+  - "icmp"
+  - "snmpv2c"
+  - "snmpv3"
+  - "lldp"
+
+prohibited_protocols:
+  - "telnet"
+  - "ftp"
+  - "tftp"
+  # ssh is allowed only for post-discovery configuration, not scanning
+  - "ssh"  
+
+scan_mode:
+  default: "incremental"
+  allowed_modes:
+    - "incremental"
+    - "full"
+
+schedule:
+  window_start: "00:00"
+  window_end: "06:00"
+  max_scans_per_hour: 4
+
+resource_limits:
+  max_threads: 20
+  max_concurrent_probes: 100
+  probe_timeout_seconds: 2
+  max_protocols_parallel: 3
+
+safety:
+  max_packet_rate_per_device: 200
+  respect_device_blacklist: true
+  treat_unknown_devices_as: "suspicious"
+
+delegation:
+  allow_regional_override: true
+  regional_constraints:
+    max_threads: 10
+    allowed_protocols:
+      - arp
+      - icmp
+
+logging:
+  batch_size: 200
+  compress_before_send: true
+  sign_logs: true
+  retention_days_local: 7
+  retention_days_regional: 30
+
+approval:
+  requires_config_push_approval: true
+  config_approval_route: "regional"
