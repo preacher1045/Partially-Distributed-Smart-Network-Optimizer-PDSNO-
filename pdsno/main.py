@@ -11,8 +11,8 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from PDSNO.logging.logger import get_logger
-from PDSNO import __version__
+from pdsno.logging.logger import get_logger
+from pdsno import __version__
 
 
 def main():

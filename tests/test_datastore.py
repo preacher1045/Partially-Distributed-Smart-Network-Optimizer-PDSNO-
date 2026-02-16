@@ -7,8 +7,8 @@ Tests database operations, optimistic locking, and data models.
 import pytest
 from datetime import datetime, timezone
 
-from PDSNO.datastore.sqlite_store import NIBStore
-from PDSNO.datastore.models import Device, DeviceStatus, Event, Lock, LockType, NIBResult
+from pdsno.datastore.sqlite_store import NIBStore
+from pdsno.datastore.models import Device, DeviceStatus, Event, Lock, LockType, NIBResult
 
 
 def test_nib_store_initialization(nib_store):

@@ -7,8 +7,8 @@ Tests AlgorithmBase and BaseController functionality.
 import pytest
 from datetime import datetime, timezone
 
-from PDSNO.core.base_class import AlgorithmBase
-from PDSNO.controllers.base_controller import BaseController
+from pdsno.core.base_class import AlgorithmBase
+from pdsno.controllers.base_controller import BaseController
 
 
 class DummyAlgorithm(AlgorithmBase):

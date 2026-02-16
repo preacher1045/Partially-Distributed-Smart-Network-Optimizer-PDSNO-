@@ -9,9 +9,9 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from PDSNO.controllers.context_manager import ContextManager
-from PDSNO.datastore.sqlite_store import NIBStore
-from PDSNO.controllers.base_controller import BaseController
+from pdsno.controllers.context_manager import ContextManager
+from pdsno.datastore.sqlite_store import NIBStore
+from pdsno.controllers.base_controller import BaseController
 
 
 @pytest.fixture

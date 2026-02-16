@@ -1,2 +1,127 @@
+# Environment and Virtual Environments
 .env
-.vscode
+.env.local
+.venv
+venv/
+env/
+ENV/
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+.settings/
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Testing and Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+test_report.xml
+.pytest_cache
+*.cover
+*.log
+coverage_report.txt
+
+# FastAPI / Uvicorn
+.uvicorn_log
+*.asgi
+__pycache__/starlette*
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+sim_phase4/
+
+# IDE Project Files
+.vscode/settings.json
+.project
+.classpath
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Temporary Files
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+.~*
+.temp/
+tmp/
+
+# Build and Distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Secrets and Local Config (if not using separate config management)
+secrets.json
+config.local.yaml
+config.local.yml
+.env.*.local
+
+# Project-specific Runtime Files
+context_runtime.yaml
+example_pdsno.db
+sim_phase4/
+config/example_context.yaml
+config/example_context.yaml.lock
+
+# Node/JavaScript (if applicable)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Docker
+docker-compose.override.yml
+
+# Misc
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+*.pkl
+*.pickle

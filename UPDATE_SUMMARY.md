@@ -18,9 +18,10 @@ The pdsno project has been updated to align the codebase with the comprehensive 
 
 **Changes:**
 - Added all required dependencies for Phase 1-5 development
-- Includes: pytest, pyyaml, filelock, paho-mqtt, requests, flask
+- Includes: pytest, pyyaml, filelock, paho-mqtt, requests, fastapi, uvicorn
 - Added cryptography libraries (PyNaCl for Ed25519)
 - Added development tools (black, flake8, mypy)
+- Migrated from Flask to FastAPI for better async support and performance
 
 **Rationale:** Phase 1.1 of ROADMAP specifies dependencies needed for environment setup.
 

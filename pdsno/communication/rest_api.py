@@ -82,7 +82,7 @@ class RESTServer:
     """
     Placeholder for REST server implementation.
     
-    Full implementation requires Flask/FastAPI and will be added
+    Full implementation requires FastAPI and will be added
     in later phases when controllers need to expose REST endpoints.
     """
     pass

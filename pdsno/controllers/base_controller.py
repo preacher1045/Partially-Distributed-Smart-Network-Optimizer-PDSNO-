@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from ..core.base_class import AlgorithmBase
 from ..logging.logger import get_logger
 from .context_manager import ContextManager
+from ..datastore.sqlite_store import NIBStore
 
 
 class BaseController:
@@ -31,7 +32,8 @@ class BaseController:
         controller_id: str,
         role: str,
         context_manager: ContextManager,
-        region: Optional[str] = None
+        region: Optional[str] = None,
+        nib_store: Optional[NIBStore] = None
     ):
         """
         Initialize base controller.
@@ -41,11 +43,13 @@ class BaseController:
             role: Controller role ("global", "regional", "local")
             context_manager: Shared context manager instance
             region: Optional region identifier (required for regional/local)
+            nib_store: Optional NIBStore instance for data persistence
         """
         self.controller_id = controller_id
         self.role = role
         self.region = region
         self.context_manager = context_manager
+        self.nib_store = nib_store
         
         # Initialize logger with controller ID
         self.logger = get_logger(__name__, controller_id=controller_id)
