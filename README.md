@@ -19,7 +19,7 @@
 pip install -r requirements.txt
 
 # Run the main entry point
-python PDSNO/main.py
+python pdsno/main.py
 
 # Try the examples
 python examples/basic_algorithm_usage.py

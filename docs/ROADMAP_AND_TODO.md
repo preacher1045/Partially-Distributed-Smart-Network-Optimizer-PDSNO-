@@ -52,11 +52,11 @@ Each task has a status tag:
 ### 0.2 — Fill Empty Documents
 
 - `[ ]` **Write `docs/architecture.md`** — High-level architecture narrative; the document a new engineer reads first. Should cover: four-layer model, controller hierarchy, data flow directions, key design decisions and *why* they were made
-- `[ ]` **Write `docs/security_model.md`** — Consolidated security posture document covering: trust hierarchy, cryptographic assumptions, key management lifecycle, what the system does/does not protect against
-- `[ ]` **Write `docs/dataflow.md`** — Trace data from a network event all the way through LC → RC → GC → NIB → back down. Covers both control plane and data plane flows
-- `[ ]` **Write `docs/api_reference.md`** — Define all inter-controller message types, their fields, and validation rules. This becomes the contract between components
-- `[ ]` **Write `docs/deployment_guide.md`** — How to stand up a minimal PDSNO environment (single GC, one RC, one LC) for development and testing
-- `[ ]` **Write `docs/use_cases.md`** — Concrete scenarios with step-by-step traces through the system (device discovery, config approval, controller validation, emergency response)
+- `[~]` **Write `docs/security_model.md`** — Consolidated security posture document covering: trust hierarchy, cryptographic assumptions, key management lifecycle, what the system does/does not protect against
+- `[~]` **Write `docs/dataflow.md`** — Trace data from a network event all the way through LC → RC → GC → NIB → back down. Covers both control plane and data plane flows
+- `[~]` **Write `docs/api_reference.md`** — Define all inter-controller message types, their fields, and validation rules. This becomes the contract between components
+- `[~]` **Write `docs/deployment_guide.md`** — How to stand up a minimal PDSNO environment (single GC, one RC, one LC) for development and testing
+- `[~]` **Write `docs/use_cases.md`** — Concrete scenarios with step-by-step traces through the system (device discovery, config approval, controller validation, emergency response)
 
 ### 0.3 — Create New Documents for Architecture Gaps
 
