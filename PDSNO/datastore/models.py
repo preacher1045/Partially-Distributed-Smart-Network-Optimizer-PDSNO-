@@ -43,7 +43,7 @@ class Device:
     device_id: str  # NIB-assigned unique ID (e.g., nib-dev-001)
     ip_address: str
     mac_address: str  # Unique hardware address
-    status: DeviceStatus = DeviceStatus.DISCOVERED
+    status: DeviceStatus = DeviceStatus.QUARANTINED
     hostname: Optional[str] = None
     temp_scan_id: Optional[str] = None  # Temporary ID from discovery scan
     vendor: Optional[str] = None
