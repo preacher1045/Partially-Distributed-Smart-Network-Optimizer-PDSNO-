@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from PDSNO.datastore import NIBStore, Device, DeviceStatus, Event, LockType
+from pdsno.datastore import NIBStore, Device, DeviceStatus, Event, LockType
 
 
 def main():

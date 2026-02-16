@@ -11,9 +11,9 @@ from datetime import datetime, timezone
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from PDSNO.core.base_class import AlgorithmBase
-from PDSNO.controllers.base_controller import BaseController
-from PDSNO.controllers.context_manager import ContextManager
+from pdsno.core.base_class import AlgorithmBase
+from pdsno.controllers.base_controller import BaseController
+from pdsno.controllers.context_manager import ContextManager
 
 
 class HelloWorldAlgorithm(AlgorithmBase):
