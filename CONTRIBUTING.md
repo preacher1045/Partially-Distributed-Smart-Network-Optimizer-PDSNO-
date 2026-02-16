@@ -1,84 +1,125 @@
+---
+title: Contributing to PDSNO
+status: Active
+author: Alexander Adjei
+last_updated: 2026-02-16
+---
+
 # Contributing to PDSNO
 
-Welcome to **PDSNO (Partially Distributed Software-Defined Network Orchestrator)** — an open-source project designed to build the foundation of next-generation intelligent network orchestration.
+## Before You Start
 
-We’re glad you’re here! This guide explains **how to propose ideas, submit changes, and stay aligned with the system’s architecture**.
+Read these three documents before writing any code or submitting a PR:
+1. `docs/PROJECT_OVERVIEW.md` — what PDSNO is and why it exists
+2. `docs/architecture/architecture.md` — the design you are working within
+3. `docs/INDEX.md` — map of all documentation
 
----
-
-## 1. Before You Start
-
-- Read the [Project Overview](./README.md) and [Roadmap](./docs/roadmap.md)
-- Review the [Architecture Overview](./docs/architecture.md)
-- Join or open a **GitHub Discussion** to share your ideas before writing code
+If anything in the architecture is unclear, open an issue and ask before building
+something that may need to be rearchitected.
 
 ---
 
-## 2. How to Propose a Change
+## Development Setup
 
-All changes — including new modules, API updates, or configuration designs — must go through a transparent discussion process.
+```bash
+# 1. Clone the repo
+git clone https://github.com/<org>/pdsno.git
+cd pdsno
 
-1. **Open a GitHub Issue**:
-   - Choose an appropriate tag (`proposal`, `bug`, `enhancement`)
-   - Describe the motivation, expected behavior, and system impact
-   - Attach diagrams, mockups, or YAML examples if relevant
+# 2. Create a virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-2. **Participate in Discussion**:
-   - Feedback will happen under **GitHub Discussions**
-   - Once consensus is reached, maintainers will assign the issue to you
+# 3. Install dependencies
+pip install -r requirements.txt
+pip install -r requirements-dev.txt  # test + lint tools
 
-3. **Create a Pull Request (PR)**:
-   - Reference the issue (`Closes #<issue_number>`)
-   - Follow the [Architecture Rules](./docs/contribution-rules.md)
-   - Request a **review from the architecture or core team**
+# 4. Initialize the development NIB
+python -m pdsno.data.init_nib --env dev
 
-## 2b. Contribution workflow
-**1. Fork the repo (creates their copy)**
-**2. Clone locally**
-[git clone https://github.com/preacher1045/Partially-Distributed-Smart-Network-Optimizer-PDSNO-.git]
-
-**3. Create a branch**
-git checkout -b feature/dynamic-validation
-
-**4. Make changes**
-**5. Commit & push**
-git push origin feature/dynamic-validation
-
-**6. Open a Pull Request (PR)**
-
+# 5. Run the test suite to confirm everything works
+pytest tests/ -v
+```
 
 ---
 
-## 3. Coding Guidelines
+## Code Standards
 
-- **Language**: Python (initial PoC); later, polyglot modules (Go, Rust, Node.js)
-- **Formatting**: Follow PEP8 and Black formatter
-- **Docs**: Every module must include a docstring explaining purpose and data flow
-- **Testing**: Unit tests required for all major functions or services
+**Python version:** 3.11+. Use type hints on all function signatures.
 
----
+**NIB access:** No controller module may import or instantiate a storage backend
+directly. All NIB access goes through `NIBStore`. If you find yourself writing
+`sqlite3.connect(...)` in a controller, stop — that is wrong.
 
-## 4. Architecture Alignment
+**NIBResult checking:** Every NIBStore method that modifies state returns a
+`NIBResult`. You must check it. Do not assume success.
 
-Every new module or function **must align** with the PDSNO orchestration hierarchy and communication model.
+```python
+# Wrong
+nib.upsert_device(device)
 
-See [Architecture Review Rules](./docs/contribution-rules.md) for details.
+# Right
+result = nib.upsert_device(device)
+if not result.success:
+    nib.write_event(Event(...))
+    raise SomeAppropriateError(result.error)
+```
 
----
+**Algorithm structure:** All algorithm modules follow `initialize / execute / finalize`.
+See `docs/algorithm_lifecycle.md`.
 
-## 5. Communication Channels
-
--  **Discussions** → For ideas, architecture debates, and design questions  
--  **Issues** → For bugs, improvements, and implementation tasks  
--  **Pull Requests** → For completed contributions awaiting review  
-
----
-
-## 6. Recognition
-
-All merged contributors are listed in the [Contributors](https://github.com/<your-repo>/graphs/contributors) section.  
-Consistent contributors may be invited as **maintainers** for specific modules.
+**Audit first:** Write the NIB audit event before or immediately after the action
+it records. Never let a significant state change happen without an Event Log entry.
 
 ---
 
-Thank you for helping make PDSNO better, smarter, and more open..
+## Architecture Review Rules
+
+Before submitting a PR that touches system design, check these rules
+(from `docs/architecture/contibution-rules.md`):
+
+1. Does your change require a controller to trust its own local memory for a
+   network fact? → Wrong. Use the NIB.
+2. Does your change allow a lower-tier controller to skip a higher-tier approval? → Wrong.
+3. Does your change write to the NIB without writing an Event Log entry? → Wrong.
+4. Does your change introduce a new interface between controllers not in `api_reference.md`? → Add it to the doc first, then implement.
+5. Does your change affect the NIB schema? → Update `nib_spec.md` and write a migration.
+
+---
+
+## Branching and PRs
+
+```
+main          — stable, tagged releases only
+dev           — integration branch; all feature branches merge here
+feature/<name> — your work
+fix/<issue>    — bug fixes
+```
+
+PR requirements:
+- All tests pass (`pytest tests/ -v`)
+- No new linting errors (`ruff check .`)
+- If you changed architecture: updated relevant doc in `docs/`
+- PR description explains *why*, not just *what*
+
+---
+
+## Documentation Standards
+
+If you change behaviour, update the doc. The two must stay in sync.
+
+Document file locations:
+- Architecture changes → `docs/architecture/`
+- New message type → `docs/api_reference.md`
+- New use case → `docs/use_cases.md`
+- New NIB table or field → `docs/architecture/nib/nib_spec.md` + migration script
+
+Keep docs in prose with code blocks for pseudocode and schemas. Avoid bullet-point
+walls — a sentence explains reasoning better than a list item.
+
+---
+
+## Questions?
+
+Open a GitHub issue tagged `question`. If it touches architecture, tag it
+`architecture-review` and it will be reviewed before any related implementation begins.

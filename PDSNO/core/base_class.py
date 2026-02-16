@@ -1,38 +1,92 @@
-class BaseClass:
+"""
+AlgorithmBase — Foundational Lifecycle Pattern
+
+Base interface for all PDSNO algorithms following the three-phase lifecycle:
+initialize → execute → finalize
+
+Design notes:
+- initialize() receives all external data via `context` and stores it as instance
+  variables. execute() and finalize() operate on that stored state.
+- This means each AlgorithmBase instance is single-use: initialize → execute → finalize.
+  Do not reuse an instance across multiple runs. Controllers are responsible for
+  instantiating a fresh object for each execution cycle.
+- Algorithms are NOT thread-safe by default. If a controller runs multiple algorithms
+  concurrently, each must run in its own instance. Shared resources (NIB, context store)
+  must be accessed through their thread-safe managers, not directly.
+"""
+
+from abc import ABC, abstractmethod
+from typing import Any, Dict
+
+
+class AlgorithmBase(ABC):
     """
-    Base interface for all algorithms within the PDSNO system.
-    Defines the standard lifecycle: initialize → execute → finalize.
+    Base lifecycle interface for all PDSNO algorithms.
+    
+    All algorithms must inherit from this class and implement the three required methods.
     """
-
-    def initialize(self, context: dict):
+    
+    def __init__(self):
+        self._initialized = False
+        self._executed = False
+    
+    @abstractmethod
+    def initialize(self, context: Dict[str, Any]) -> None:
         """
-        Prepare environment and validate input context.
+        Prepare the algorithm for execution.
+        
+        Store all necessary state as instance variables. execute() will use this state.
 
-        Parameters:
-            context (dict): Configuration and environment data required by the algorithm.
+        Args:
+            context: A dictionary containing all inputs the algorithm needs.
+                    Controllers are responsible for assembling this from the
+                    NIB, context_runtime.yaml, and any runtime parameters.
+
+        Raises:
+            ValueError: If required context fields are missing or invalid.
+            RuntimeError: If required resources cannot be allocated.
         """
-        raise NotImplementedError(
-            "The 'initialize' method must be implemented by subclasses."
-        )
+        pass
 
-    def execute(self, data: any):
+    @abstractmethod
+    def execute(self) -> Any:
         """
-        Perform the core logic of the algorithm.
+        Run the algorithm's core logic.
 
-        Parameters:
-            data (any): Input data to process.
+        Uses state stored during initialize(). Does not accept parameters —
+        all inputs must be loaded in initialize().
+
+        Returns:
+            Algorithm-specific output. Each subclass documents its return type.
+
+        Raises:
+            RuntimeError: If execute() is called before initialize().
+        """
+        if not self._initialized:
+            raise RuntimeError("initialize() must be called before execute()")
+        pass
+
+    @abstractmethod
+    def finalize(self) -> Dict[str, Any]:
+        """
+        Clean up resources and return the result payload.
         
         Returns:
-            any: Output results or decisions from algorithm execution.
+            A dictionary with at minimum:
+            {
+                "status": "complete" | "failed" | "partial",
+                "timestamp": ISO-8601 string,
+                "result": <algorithm-specific data>
+            }
+        
+        Raises:
+            RuntimeError: If finalize() is called before execute().
         """
-        raise NotImplementedError(
-            "The 'execute' method must be implemented by subclasses."
-        )
+        if not self._executed:
+            raise RuntimeError("execute() must be called before finalize()")
+        pass
 
-    def finalize(self):
-        """
-        Perform cleanup, resource release, and return final results if applicable.
-        """
-        raise NotImplementedError(
-            "The 'finalize' method must be implemented by subclasses."
-        )
+
+# Legacy alias for backwards compatibility
+BaseClass = AlgorithmBase
+
