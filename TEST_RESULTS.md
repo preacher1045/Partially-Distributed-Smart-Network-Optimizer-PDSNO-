@@ -1,7 +1,7 @@
 # PDSNO Project Testing Results
 
-**Date**: February 16, 2026 (Updated)  
-**Last Test Run**: February 16, 2026  
+**Date**: February 17, 2026 (Updated)  
+**Last Test Run**: February 17, 2026  
 **Test Framework**: pytest 9.0.2  
 **Python Version**: 3.13.0  
 
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-✅ **All 21 tests PASSED**
+✅ **All 23 tests PASSED**
 
 The PDSNO project has been comprehensively tested. All unit tests pass successfully with 79% code coverage across the project modules.
 
@@ -18,12 +18,12 @@ The PDSNO project has been comprehensively tested. All unit tests pass successfu
 ## Test Execution Results
 
 ### Overall Statistics
-- **Total Tests**: 21
-- **Passed**: 21 (100%)
+- **Total Tests**: 23
+- **Passed**: 23 (100%)
 - **Failed**: 0
 - **Errors**: 0
 - **Skipped**: 0
-- **Execution Time**: 1.50 seconds
+- **Execution Time**: 1.37 seconds
 
 ### Code Coverage
 - **Total Coverage**: 79%
@@ -79,6 +79,18 @@ Tests for the controller validation flow and message bus communication.
 |------|--------|---------|
 | `test_controller_sequence_increments` | ✅ PASSED | Tests controller ID sequence assignment |
 
+---
+
+### 3. Controller NIB Write Tests (2 tests) ✅
+**File**: `tests/test_controller_nib_write.py`
+
+Tests controller persistence to the NIB after validation.
+
+| Test | Status | Purpose |
+|------|--------|---------|
+| `test_controller_written_to_nib` | ✅ PASSED | Validates controller record is written to NIB |
+| `test_controller_query_by_region` | ✅ PASSED | Validates controller retrieval by region |
+
 **Coverage**: 
 - message_bus.py: 82%
 - message_format.py: 88%
@@ -87,7 +99,7 @@ Tests for the controller validation flow and message bus communication.
 
 ---
 
-### 3. Data Store Tests (6 tests) ✅
+### 4. Data Store Tests (6 tests) ✅
 **File**: `tests/test_datastore.py`
 
 Tests for NIB (Network Information Base) storage operations.
@@ -156,13 +168,14 @@ Tests for NIB (Network Information Base) storage operations.
 
 ---
 
-## Recent Updates (February 16, 2026)
+## Recent Updates (February 17, 2026)
 
 ### Technology Stack Improvements
 - ✅ **Migrated from Flask to FastAPI**: Upgraded REST API framework for better async support and performance
 - ✅ **Updated all dependencies**: Installed latest versions via `pip freeze` to requirements.txt
 - ✅ **Enhanced .gitignore**: Added comprehensive exclusion patterns for CI/CD and production
 - ✅ **Updated documentation**: Reflected technology changes across TEST_RESULTS.md, UPDATE_SUMMARY.md, and source code
+- ✅ **Added controller NIB persistence**: Implemented controller CRUD operations and tests
 
 ### Dependency Upgrades
 - FastAPI: 0.104.0 → 0.129.0 (latest improvements and bug fixes)
@@ -241,5 +254,5 @@ pytest tests/ -v --cov=pdsno --cov-report=term-missing
 
 ---
 
-**Report Generated**: 2026-02-16  
+**Report Generated**: 2026-02-17  
 **Next Review**: After adding tests for uncovered modules

@@ -12,6 +12,9 @@ from pathlib import Path
 from pdsno.controllers.context_manager import ContextManager
 from pdsno.datastore.sqlite_store import NIBStore
 from pdsno.controllers.base_controller import BaseController
+from pdsno.controllers.global_controller import GlobalController
+from pdsno.controllers.regional_controller import RegionalController
+from pdsno.communication.message_bus import MessageBus
 
 
 @pytest.fixture
@@ -44,4 +47,36 @@ def base_controller(context_manager):
         role="local",
         context_manager=context_manager,
         region="test-zone"
+    )
+
+
+@pytest.fixture
+def message_bus():
+    """Provide a message bus instance for tests"""
+    return MessageBus()
+
+
+@pytest.fixture
+def gc(temp_dir, nib_store):
+    """Provide a GlobalController for validation tests"""
+    context_path = temp_dir / "gc_context.yaml"
+    context_mgr = ContextManager(str(context_path))
+    return GlobalController(
+        controller_id="global_cntl_1",
+        context_manager=context_mgr,
+        nib_store=nib_store
+    )
+
+
+@pytest.fixture
+def rc(temp_dir, nib_store, message_bus):
+    """Provide a RegionalController for validation tests"""
+    context_path = temp_dir / "rc_context.yaml"
+    context_mgr = ContextManager(str(context_path))
+    return RegionalController(
+        temp_id="temp-rc-test-001",
+        region="zone-A",
+        context_manager=context_mgr,
+        nib_store=nib_store,
+        message_bus=message_bus
     )

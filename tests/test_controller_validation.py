@@ -215,7 +215,7 @@ class TestGlobalController:
             "public_key": "test-key"
         }
         
-        result = gc._step6_assign_identity(request)
+        result = gc.assign_identity(request)
         
         assert result["error"] is False
         assert gc.controller_sequence["regional"] == initial_seq + 1

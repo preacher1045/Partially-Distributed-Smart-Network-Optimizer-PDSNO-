@@ -55,6 +55,7 @@ The pdsno project has been updated to align the codebase with the comprehensive 
 - Integrated structured logging with controller ID
 - Added context management convenience methods
 - Removed hardcoded instantiations (now uses dependency injection)
+- Added controller identity persistence in NIB (CRUD support for controllers)
 
 **Key Methods:**
 - `load_algorithm(algorithm_class)` - Instantiate algorithms

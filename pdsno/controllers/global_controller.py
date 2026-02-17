@@ -7,6 +7,7 @@ and maintains global state.
 
 import hmac
 import hashlib
+import json
 import secrets
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -15,6 +16,7 @@ from typing import Dict, Optional
 from pdsno.controllers.base_controller import BaseController
 from pdsno.communication.message_format import MessageEnvelope, MessageType
 from pdsno.datastore import NIBStore
+from pdsno.datastore.models import Controller, Event
 from pdsno.controllers.context_manager import ContextManager
 from pdsno.logging.logger import get_logger
 
@@ -68,17 +70,17 @@ class GlobalController(BaseController):
         self.logger.info(f"Validation request from {temp_id}")
         
         # Step 1: Check timestamp freshness
-        result = self._step1_check_timestamp(envelope)
+        result = self.check_timestamp(envelope)
         if result.get("reject"):
             return self._create_rejection(envelope, result["reason"])
         
         # Step 2: Check blocklist & verify bootstrap token
-        result = self._step2_verify_bootstrap_token(payload)
+        result = self.verify_bootstrap_token(payload)
         if result.get("reject"):
             return self._create_rejection(envelope, result["reason"])
         
         # Step 3: Issue challenge
-        challenge_envelope = self._step3_issue_challenge(envelope, payload)
+        challenge_envelope = self.issue_challenge(envelope, payload)
         
         return challenge_envelope
     
@@ -95,7 +97,7 @@ class GlobalController(BaseController):
         self.logger.info(f"Challenge response from {temp_id}")
         
         # Step 4: Verify challenge response
-        result = self._step4_verify_challenge_response(
+        result = self.verify_challenge_response(
             challenge_id, temp_id, signed_nonce
         )
         if result.get("reject"):
@@ -105,12 +107,12 @@ class GlobalController(BaseController):
         original_request = result["original_request"]
         
         # Step 5: Policy and metadata verification
-        result = self._step5_policy_checks(original_request)
+        result = self.policy_checks(original_request)
         if result.get("reject"):
             return self._create_rejection(envelope, result["reason"])
         
         # Step 6: Assign identity atomically
-        result = self._step6_assign_identity(original_request)
+        result = self.assign_identity(original_request)
         if result.get("error"):
             return self._create_error_response(envelope, result["reason"])
         
@@ -132,7 +134,7 @@ class GlobalController(BaseController):
     
     # ===== Step 1: Timestamp Freshness =====
     
-    def _step1_check_timestamp(self, envelope: MessageEnvelope) -> Dict:
+    def check_timestamp(self, envelope: MessageEnvelope) -> Dict:
         """Check if request timestamp is within freshness window"""
         now = datetime.now(timezone.utc)
         message_time = envelope.timestamp
@@ -152,7 +154,7 @@ class GlobalController(BaseController):
     
     # ===== Step 2: Bootstrap Token Verification =====
     
-    def _step2_verify_bootstrap_token(self, payload: Dict) -> Dict:
+    def verify_bootstrap_token(self, payload: Dict) -> Dict:
         """Verify bootstrap token using HMAC-SHA256"""
         temp_id = payload.get("temp_id")
         controller_type = payload.get("controller_type")
@@ -182,7 +184,7 @@ class GlobalController(BaseController):
     
     # ===== Step 3: Issue Challenge =====
     
-    def _step3_issue_challenge(self, envelope: MessageEnvelope, payload: Dict) -> MessageEnvelope:
+    def issue_challenge(self, envelope: MessageEnvelope, payload: Dict) -> MessageEnvelope:
         """Generate and issue a cryptographic challenge"""
         challenge_id = f"challenge-{uuid.uuid4().hex[:12]}"
         nonce = secrets.token_bytes(32)  # 256-bit nonce
@@ -213,7 +215,7 @@ class GlobalController(BaseController):
     
     # ===== Step 4: Verify Challenge Response =====
     
-    def _step4_verify_challenge_response(
+    def verify_challenge_response(
         self, challenge_id: str, temp_id: str, signed_nonce: str
     ) -> Dict:
         """Verify the signed challenge response"""
@@ -257,7 +259,7 @@ class GlobalController(BaseController):
     
     # ===== Step 5: Policy Checks =====
     
-    def _step5_policy_checks(self, request: Dict) -> Dict:
+    def policy_checks(self, request: Dict) -> Dict:
         """Verify controller is permitted by policy"""
         controller_type = request["controller_type"]
         region = request["region"]
@@ -279,7 +281,7 @@ class GlobalController(BaseController):
     
     # ===== Step 6: Assign Identity =====
     
-    def _step6_assign_identity(self, request: Dict) -> Dict:
+    def assign_identity(self, request: Dict) -> Dict:
         """Atomically assign permanent identity and write to NIB"""
         controller_type = request["controller_type"]
         region = request["region"]
@@ -290,13 +292,14 @@ class GlobalController(BaseController):
         assigned_id = f"{controller_type}_cntl_{region}_{seq}"
         
         # Generate certificate (PoC: JSON with HMAC signature)
+        issued_at = datetime.now(timezone.utc)
         certificate = {
             "assigned_id": assigned_id,
             "role": controller_type,
             "region": region,
             "public_key": request["public_key"],
             "issued_by": self.controller_id,
-            "issued_at": datetime.now(timezone.utc).isoformat(),
+            "issued_at": issued_at.isoformat(),
             "signature": "hmac-placeholder"  # Would be actual HMAC
         }
         
@@ -310,12 +313,49 @@ class GlobalController(BaseController):
             }
         
         # Write to NIB (atomically with audit event)
-        # In production, this would be a transaction
         try:
-            # This is where we'd call nib_store.register_controller()
-            # For now, just log
+            # Create controller record
+            controller_record = Controller(
+                controller_id=assigned_id,
+                role=controller_type,
+                region=region,
+                status="active",
+                validated_by=self.controller_id,
+                validated_at=issued_at,
+                public_key=request["public_key"],
+                certificate=json.dumps(certificate),
+                capabilities=request.get("metadata", {}).get("capabilities", []),
+                metadata=request.get("metadata", {}),
+                version=0
+            )
+            
+            # Write controller to NIB
+            result = self.nib_store.upsert_controller(controller_record)
+            if not result.success:
+                self.logger.error(f"Failed to write controller to NIB: {result.error}")
+                return {"error": True, "reason": "NIB_WRITE_FAILED"}
+            
+            # Write audit event
+            event = Event(
+                event_id=f"event-{uuid.uuid4().hex[:12]}",
+                event_type="CONTROLLER_VALIDATED",
+                controller_id=self.controller_id,
+                timestamp=issued_at,
+                details={
+                    "assigned_id": assigned_id,
+                    "role": controller_type,
+                    "region": region,
+                    "validated_at": issued_at.isoformat()
+                }
+            )
+            
+            event_result = self.nib_store.write_event(event)
+            if not event_result.success:
+                self.logger.warning(f"Failed to write audit event: {event_result.error}")
+                # Don't fail the validation for audit log failure, but log it
+            
             self.logger.info(
-                f"Assigned identity: {assigned_id} (type={controller_type}, region={region})"
+                f"✓ Assigned identity: {assigned_id} (type={controller_type}, region={region})"
             )
             
             return {
@@ -326,8 +366,9 @@ class GlobalController(BaseController):
             }
             
         except Exception as e:
-            self.logger.error(f"Failed to register controller: {e}")
+            self.logger.error(f"Failed to register controller: {e}", exc_info=True)
             return {"error": True, "reason": "REGISTRATION_FAILED"}
+
     
     # ===== Helper Methods =====
     
