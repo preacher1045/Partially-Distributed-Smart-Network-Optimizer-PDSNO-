@@ -211,3 +211,70 @@ class RegionalController(BaseController):
             message_type=MessageType.VALIDATION_RESULT,
             payload={"status": "ERROR", "reason": "NOT_IMPLEMENTED_YET"}
         )
+    
+    def handle_discovery_report(self, envelope: MessageEnvelope) -> MessageEnvelope:
+        """
+        Handle discovery reports from Local Controllers.
+        
+        Process device discoveries, detect anomalies, and update NIB.
+        """
+        payload = envelope.payload
+        lc_id = payload.get("lc_id")
+        devices = payload.get("devices", [])
+        delta = payload.get("delta", {})
+        
+        self.logger.info(
+            f"Received discovery report from {lc_id}: "
+            f"{len(devices)} devices, "
+            f"{delta.get('new', 0)} new, "
+            f"{delta.get('updated', 0)} updated, "
+            f"{delta.get('inactive', 0)} inactive"
+        )
+        
+        # Check for MAC address collisions across LCs
+        collisions = self._check_mac_collisions(devices, lc_id)
+        
+        if collisions:
+            self.logger.warning(
+                f"MAC collision detected: {len(collisions)} conflicts",
+                extra={"collisions": collisions}
+            )
+        
+        # Acknowledge receipt
+        return MessageEnvelope(
+            sender_id=self.controller_id,
+            recipient_id=envelope.sender_id,
+            message_type=MessageType.DISCOVERY_REPORT_ACK,
+            payload={
+                "status": "received",
+                "devices_processed": len(devices),
+                "collisions_detected": len(collisions) if collisions else 0
+            }
+        )
+    
+    def _check_mac_collisions(self, devices: list, reporting_lc_id: str) -> dict:
+        """
+        Check if any MAC addresses in the report conflict with devices
+        managed by other LCs.
+        
+        Returns:
+            Dict of {mac_address: existing_lc_id} for collisions
+        """
+        collisions = {}
+        
+        for device in devices:
+            mac = device.get("mac")
+            if not mac:
+                continue
+            
+            # Query NIB for existing device with this MAC
+            existing_device = self.nib_store.get_device_by_mac(mac)
+            
+            if existing_device and existing_device.managed_by_lc != reporting_lc_id:
+                collisions[mac] = existing_device.managed_by_lc
+                self.logger.warning(
+                    f"MAC collision: {mac} reported by {reporting_lc_id} "
+                    f"but already managed by {existing_device.managed_by_lc}"
+                )
+        
+        return collisions

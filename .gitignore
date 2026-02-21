@@ -21,6 +21,10 @@ Thumbs.db
 .settings/
 *.iml
 
+#simulation files
+sim_phase5/
+examples/
+
 # Python
 __pycache__/
 *.py[cod]
