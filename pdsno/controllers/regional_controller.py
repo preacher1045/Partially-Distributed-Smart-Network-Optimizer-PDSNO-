@@ -7,6 +7,7 @@ and approves MEDIUM/LOW config changes.
 
 import hmac
 import hashlib
+from typing import Optional
 import uuid
 from datetime import datetime, timezone
 
@@ -212,27 +213,32 @@ class RegionalController(BaseController):
             payload={"status": "ERROR", "reason": "NOT_IMPLEMENTED_YET"}
         )
     
-    def handle_discovery_report(self, envelope: MessageEnvelope) -> MessageEnvelope:
-        """
-        Handle discovery reports from Local Controllers.
-        
-        Process device discoveries, detect anomalies, and update NIB.
-        """
+    def handle_discovery_report(self, envelope: MessageEnvelope) -> Optional[MessageEnvelope]:
+        """Handle discovery reports from Local Controllers."""
         payload = envelope.payload
         lc_id = payload.get("lc_id")
-        devices = payload.get("devices", [])
-        delta = payload.get("delta", {})
+        subnet = payload.get("subnet")
+        new_devices = payload.get("new_devices", [])
+        updated_devices = payload.get("updated_devices", [])
+        inactive_devices = payload.get("inactive_devices", [])
         
+        # Validate report FIRST
+        if not lc_id or not subnet:
+            self.logger.warning(f"Invalid discovery report from {envelope.sender_id}: missing lc_id or subnet")
+            return None
+        
+        # NOW log with actual counts
         self.logger.info(
-            f"Received discovery report from {lc_id}: "
-            f"{len(devices)} devices, "
-            f"{delta.get('new', 0)} new, "
-            f"{delta.get('updated', 0)} updated, "
-            f"{delta.get('inactive', 0)} inactive"
+            f"Discovery report from {lc_id} (subnet {subnet}): "
+            f"{len(new_devices)} new, {len(updated_devices)} updated, "
+            f"{len(inactive_devices)} inactive"
         )
         
+        # Combine all discovered devices for collision checking
+        all_devices = new_devices + updated_devices
+        
         # Check for MAC address collisions across LCs
-        collisions = self._check_mac_collisions(devices, lc_id)
+        collisions = self._check_mac_collisions(all_devices, lc_id)
         
         if collisions:
             self.logger.warning(
@@ -247,7 +253,7 @@ class RegionalController(BaseController):
             message_type=MessageType.DISCOVERY_REPORT_ACK,
             payload={
                 "status": "received",
-                "devices_processed": len(devices),
+                "devices_processed": len(all_devices),
                 "collisions_detected": len(collisions) if collisions else 0
             }
         )
