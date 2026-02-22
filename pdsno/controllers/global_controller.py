@@ -19,6 +19,7 @@ from pdsno.datastore import NIBStore
 from pdsno.datastore.models import Controller, Event
 from pdsno.controllers.context_manager import ContextManager
 from pdsno.logging.logger import get_logger
+from pdsno.communication.rest_server import ControllerRESTServer
 
 
 class GlobalController(BaseController):
@@ -41,7 +42,9 @@ class GlobalController(BaseController):
         self,
         controller_id: str,
         context_manager: ContextManager,
-        nib_store: NIBStore
+        nib_store: NIBStore,
+        enable_rest: bool = False,
+        rest_port: int = 8001
     ):
         super().__init__(
             controller_id=controller_id,
@@ -56,6 +59,27 @@ class GlobalController(BaseController):
         
         # Validated controllers counter (for ID assignment)
         self.controller_sequence = {"regional": 0, "local": 0}
+        
+        # REST server setup (optional for backwards compatibility)
+        self.rest_server = None
+        if enable_rest:
+            self.rest_server = ControllerRESTServer(
+                controller_id=self.controller_id,
+                port=rest_port,
+                title="PDSNO Global Controller API"
+            )
+            
+            # Register message handlers
+            self.rest_server.register_handler(
+                MessageType.VALIDATION_REQUEST,
+                self.handle_validation_request
+            )
+            self.rest_server.register_handler(
+                MessageType.CHALLENGE_RESPONSE,
+                self.handle_challenge_response
+            )
+            
+            self.logger.info(f"REST server configured on port {rest_port}")
         
         self.logger.info(f"Global Controller {controller_id} initialized")
     
@@ -397,3 +421,25 @@ class GlobalController(BaseController):
                 "reason": reason
             }
         )
+
+    def start_rest_server_background(self):
+        """Start the REST server in a background thread"""
+        if not self.rest_server:
+            raise RuntimeError("REST server not configured. Set enable_rest=True in __init__")
+        
+        self.rest_server.start_background()
+        self.logger.info(f"REST API available at {self.rest_server.get_base_url()}")
+    
+    async def start_rest_server_async(self):
+        """Start the REST server (async)"""
+        if not self.rest_server:
+            raise RuntimeError("REST server not configured. Set enable_rest=True in __init__")
+        
+        await self.rest_server.start()
+    
+    def get_rest_url(self) -> str:
+        """Get the base URL for this controller's REST API"""
+        if not self.rest_server:
+            raise RuntimeError("REST server not configured")
+        
+        return self.rest_server.get_base_url()

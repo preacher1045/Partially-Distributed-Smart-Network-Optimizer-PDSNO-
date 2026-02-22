@@ -14,6 +14,7 @@ from pdsno.discovery import ARPScanner, ICMPScanner, SNMPScanner
 from pdsno.datastore import NIBStore, Device, DeviceStatus, NIBResult
 from pdsno.controllers.context_manager import ContextManager
 from pdsno.communication.message_format import MessageEnvelope, MessageType
+from pdsno.communication.mqtt_client import ControllerMQTTClient
 
 
 class LocalController(BaseController):
@@ -34,7 +35,9 @@ class LocalController(BaseController):
         subnet: str,
         context_manager: ContextManager,
         nib_store: NIBStore,
-        message_bus=None
+        message_bus=None,
+        mqtt_broker: Optional[str] = None,
+        mqtt_port: int = 1883
     ):
         super().__init__(
             controller_id=controller_id,
@@ -47,6 +50,16 @@ class LocalController(BaseController):
         self.subnet = subnet
         self.message_bus = message_bus
         self.last_scan_devices: Dict[str, Device] = {}  # MAC -> Device
+        
+        # MQTT client setup
+        self.mqtt_client = None
+        if mqtt_broker:
+            self.mqtt_client = ControllerMQTTClient(
+                controller_id=controller_id,
+                broker_host=mqtt_broker,
+                broker_port=mqtt_port
+            )
+            self.logger.info(f"MQTT client configured for broker {mqtt_broker}:{mqtt_port}")
         
         self.logger.info(f"Local Controller {controller_id} initialized for subnet {subnet}")
     
@@ -280,6 +293,22 @@ class LocalController(BaseController):
             f"{len(delta['inactive'])} inactive"
         )
         
+        # Try MQTT first if available
+        if self.mqtt_client and self.mqtt_client.connected:
+            topic = f"pdsno/discovery/{self.region}/{self.controller_id}"
+            success = self.mqtt_client.publish(
+                topic=topic,
+                message_type=MessageType.DISCOVERY_REPORT,
+                payload=payload,
+                qos=1
+            )
+            if success:
+                self.logger.debug(f"Discovery report published to MQTT topic {topic}")
+                return
+            else:
+                self.logger.warning("MQTT publish failed, falling back to message bus")
+        
+        # Fall back to message bus
         try:
             self.message_bus.send(
                 sender_id=self.controller_id,
@@ -289,3 +318,43 @@ class LocalController(BaseController):
             )
         except Exception as e:
             self.logger.error(f"Failed to send discovery report: {e}")
+    
+    def connect_mqtt(self) -> bool:
+        """Connect to MQTT broker"""
+        if not self.mqtt_client:
+            raise RuntimeError("MQTT client not configured")
+        
+        return self.mqtt_client.connect()
+    
+    def disconnect_mqtt(self):
+        """Disconnect from MQTT broker"""
+        if self.mqtt_client:
+            self.mqtt_client.disconnect()
+    
+    def subscribe_to_policy_updates(self):
+        """
+        Subscribe to policy updates from RC.
+        
+        Listens on: pdsno/policy/{region}
+        """
+        if not self.mqtt_client:
+            raise RuntimeError("MQTT client not configured")
+        
+        topic = f"pdsno/policy/{self.region}"
+        
+        self.mqtt_client.subscribe(
+            topic,
+            self._handle_policy_update,
+            qos=1
+        )
+        
+        self.logger.info(f"Subscribed to policy updates on {topic}")
+    
+    def _handle_policy_update(self, envelope: MessageEnvelope):
+        """Handle policy update from RC"""
+        self.logger.info(f"Policy update received from {envelope.sender_id}")
+        
+        policy = envelope.payload
+        
+        # Store policy in context
+        self.update_context({'region_policy': policy})

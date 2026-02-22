@@ -7,7 +7,7 @@ and approves MEDIUM/LOW config changes.
 
 import hmac
 import hashlib
-from typing import Optional
+from typing import Optional, Callable
 import uuid
 from datetime import datetime, timezone
 
@@ -16,6 +16,9 @@ from pdsno.communication.message_format import MessageEnvelope, MessageType
 from pdsno.datastore import NIBStore
 from pdsno.controllers.context_manager import ContextManager
 from pdsno.logging.logger import get_logger
+from pdsno.communication.rest_server import ControllerRESTServer
+from pdsno.communication.http_client import ControllerHTTPClient
+from pdsno.communication.mqtt_client import ControllerMQTTClient
 
 
 class RegionalController(BaseController):
@@ -35,7 +38,12 @@ class RegionalController(BaseController):
         region: str,
         context_manager: ContextManager,
         nib_store: NIBStore,
-        message_bus=None  # Injected after creation
+        message_bus=None,  # Injected after creation (backwards compatibility)
+        http_client: Optional[ControllerHTTPClient] = None,
+        enable_rest: bool = False,
+        rest_port: int = 8002,
+        mqtt_broker: Optional[str] = None,
+        mqtt_port: int = 1883
     ):
         # Start with temp_id, will be updated after validation
         super().__init__(
@@ -49,6 +57,7 @@ class RegionalController(BaseController):
         self.temp_id = temp_id
         self.region = region
         self.message_bus = message_bus
+        self.http_client = http_client  # HTTP client for GC communication
         self.validated = False
         self.assigned_id = None
         self.certificate = None
@@ -57,29 +66,53 @@ class RegionalController(BaseController):
         # Store for challenge-response flow
         self.pending_validation = None
         
+        # REST server setup
+        self.rest_server = None
+        if enable_rest:
+            self.rest_server = ControllerRESTServer(
+                controller_id=self.temp_id,
+                port=rest_port,
+                title="PDSNO Regional Controller API"
+            )
+            
+            # Register handlers
+            self.rest_server.register_handler(
+                MessageType.DISCOVERY_REPORT,
+                self.handle_discovery_report
+            )
+            
+            self.logger.info(f"REST server configured on port {rest_port}")
+        
+        # MQTT client setup
+        self.mqtt_client = None
+        if mqtt_broker:
+            self.mqtt_client = ControllerMQTTClient(
+                controller_id=self.temp_id,
+                broker_host=mqtt_broker,
+                broker_port=mqtt_port
+            )
+            self.logger.info(f"MQTT client configured for broker {mqtt_broker}:{mqtt_port}")
+        
         self.logger.info(f"Regional Controller {temp_id} initialized for region {region}")
     
-    def request_validation(self, global_controller_id: str):
-        """
-        Request validation from the Global Controller.
-        
-        Starts the validation flow by sending a VALIDATION_REQUEST.
-        """
+    def request_validation(self, global_controller_id: str, global_controller_url: Optional[str] = None):
+        """Request validation from the Global Controller via HTTP or message bus."""
         if self.validated:
             self.logger.warning(f"Controller {self.controller_id} already validated")
             return
         
-        if not self.message_bus:
-            raise RuntimeError("Message bus not set - cannot request validation")
+        # Determine communication method
+        use_http = self.http_client is not None and global_controller_url is not None
         
-        # Generate bootstrap token (in production, this would be provisioned securely)
+        if not use_http and not self.message_bus:
+            raise RuntimeError("Neither HTTP client nor message bus configured")
+        
+        # Generate bootstrap token and keys
         bootstrap_token = self._generate_bootstrap_token()
-        
-        # Generate key pair (PoC: placeholder, Phase 6 will use Ed25519)
         public_key = "ed25519-pubkey-placeholder"
         self.private_key = "ed25519-privkey-placeholder"
         
-        # Create validation request
+        # Create validation request payload
         payload = {
             "temp_id": self.temp_id,
             "controller_type": "regional",
@@ -88,7 +121,7 @@ class RegionalController(BaseController):
             "bootstrap_token": bootstrap_token,
             "metadata": {
                 "hostname": "rc-" + self.region,
-                "ip_address": "10.0.0.1",  # Placeholder
+                "ip_address": "10.0.0.1",
                 "software_version": "0.1.0",
                 "capabilities": ["discovery", "approval", "policy_enforcement"]
             }
@@ -96,21 +129,34 @@ class RegionalController(BaseController):
         
         self.logger.info(f"Requesting validation from {global_controller_id}")
         
-        # Send validation request via message bus
-        response = self.message_bus.send(
-            sender_id=self.temp_id,
-            recipient_id=global_controller_id,
-            message_type=MessageType.VALIDATION_REQUEST,
-            payload=payload
-        )
+        if use_http:
+            # Register GC in HTTP client if URL provided
+            self.http_client.register_controller(global_controller_id, global_controller_url)
+            
+            # Send via HTTP
+            response = self.http_client.send(
+                sender_id=self.temp_id,
+                recipient_id=global_controller_id,
+                message_type=MessageType.VALIDATION_REQUEST,
+                payload=payload
+            )
+        else:
+            # Use message bus (backwards compatible)
+            response = self.message_bus.send(
+                sender_id=self.temp_id,
+                recipient_id=global_controller_id,
+                message_type=MessageType.VALIDATION_REQUEST,
+                payload=payload
+            )
         
-        # Response should be a CHALLENGE
+        # Handle response (same logic for both HTTP and message bus)
         if response.message_type == MessageType.CHALLENGE:
             self._handle_challenge(response, global_controller_id)
         elif response.message_type == MessageType.VALIDATION_RESULT:
             self._handle_validation_result(response)
         else:
             self.logger.error(f"Unexpected response type: {response.message_type}")
+
     
     def _handle_challenge(self, envelope: MessageEnvelope, global_controller_id: str):
         """Handle the challenge from the Global Controller"""
@@ -137,13 +183,23 @@ class RegionalController(BaseController):
         
         self.logger.info(f"Sending challenge response for {challenge_id}")
         
-        result = self.message_bus.send(
-            sender_id=self.temp_id,
-            recipient_id=global_controller_id,
-            message_type=MessageType.CHALLENGE_RESPONSE,
-            payload=response_payload,
-            correlation_id=envelope.message_id
-        )
+        # Send via HTTP or message bus
+        if self.http_client:
+            result = self.http_client.send(
+                sender_id=self.temp_id,
+                recipient_id=global_controller_id,
+                message_type=MessageType.CHALLENGE_RESPONSE,
+                payload=response_payload,
+                correlation_id=envelope.message_id
+            )
+        else:
+            result = self.message_bus.send(
+                sender_id=self.temp_id,
+                recipient_id=global_controller_id,
+                message_type=MessageType.CHALLENGE_RESPONSE,
+                payload=response_payload,
+                correlation_id=envelope.message_id
+            )
         
         # Result should be VALIDATION_RESULT
         if result.message_type == MessageType.VALIDATION_RESULT:
@@ -284,3 +340,141 @@ class RegionalController(BaseController):
                 )
         
         return collisions
+
+    def start_rest_server_background(self):
+        """Start the REST server in a background thread"""
+        if not self.rest_server:
+            raise RuntimeError("REST server not configured")
+        
+        self.rest_server.start_background()
+        self.logger.info(f"REST API available at {self.rest_server.get_base_url()}")
+    
+    def update_rest_server_id(self):
+        """Update REST server's controller ID after validation"""
+        if self.rest_server and self.validated:
+            self.rest_server.controller_id = self.assigned_id
+            self.logger.info(f"REST server ID updated to {self.assigned_id}")
+    
+    def get_rest_url(self) -> str:
+        """Get the base URL for this controller's REST API"""
+        if not self.rest_server:
+            raise RuntimeError("REST server not configured")
+        
+        return self.rest_server.get_base_url()
+    
+    def connect_mqtt(self) -> bool:
+        """Connect to MQTT broker"""
+        if not self.mqtt_client:
+            raise RuntimeError("MQTT client not configured")
+        
+        return self.mqtt_client.connect()
+    
+    def disconnect_mqtt(self):
+        """Disconnect from MQTT broker"""
+        if self.mqtt_client:
+            self.mqtt_client.disconnect()
+    
+    def subscribe_to_discovery_reports(self):
+        """
+        Subscribe to discovery reports from all LCs in this region.
+        """
+        if not self.mqtt_client:
+            raise RuntimeError("MQTT client not configured")
+        
+        # Subscribe to all discovery reports in this region
+        # Topic pattern: pdsno/discovery/{region}/+
+        # + wildcard matches any LC ID
+        topic = f"pdsno/discovery/{self.region}/+"
+        
+        self.mqtt_client.subscribe(
+            topic,
+            self._handle_mqtt_discovery_report,
+            qos=1
+        )
+        
+        self.logger.info(f"Subscribed to discovery reports on {topic}")
+    
+    def _handle_mqtt_discovery_report(self, envelope: MessageEnvelope):
+        """
+        Handle discovery report received via MQTT.
+        
+        This is called by MQTT client when a message arrives.
+        """
+        self.logger.info(
+            f"MQTT discovery report from {envelope.sender_id}"
+        )
+        
+        # Reuse existing discovery report handler
+        self.handle_discovery_report(envelope)
+    
+    def publish_policy_update(self, policy: dict):
+        """
+        Publish policy update to all LCs in this region.
+        
+        Args:
+            policy: Policy dictionary to publish
+        """
+        if not self.mqtt_client:
+            raise RuntimeError("MQTT client not configured")
+        
+        # Publish to region-specific policy topic
+        topic = f"pdsno/policy/{self.region}"
+        
+        success = self.mqtt_client.publish(
+            topic=topic,
+            message_type=MessageType.POLICY_UPDATE,
+            payload=policy,
+            qos=1,
+            retain=True
+        )
+        
+        if success:
+            self.logger.info(f"Policy update published to {topic}")
+        else:
+            self.logger.error("Failed to publish policy update")
+        
+        return success
+    
+    def subscribe_to_global_policies(self, handler: Optional[Callable] = None):
+        """
+        Subscribe to global policy updates from GC.
+        
+        Args:
+            handler: Optional custom handler. If not provided, uses default.
+        """
+        if not self.mqtt_client:
+            raise RuntimeError("MQTT client not configured")
+        
+        topic = "pdsno/policy/global"
+        
+        handler_func = handler or self._handle_global_policy_update
+        
+        self.mqtt_client.subscribe(topic, handler_func, qos=1)
+        self.logger.info(f"Subscribed to global policy updates on {topic}")
+    
+    def _handle_global_policy_update(self, envelope: MessageEnvelope):
+        """Handle global policy update from GC"""
+        self.logger.info("Global policy update received from GC")
+        
+        policy = envelope.payload
+        
+        # Store policy in context
+        self.update_context({'global_policy': policy})
+        
+        # Optionally re-publish to regional topic for LCs
+        if self.mqtt_client:
+            self.publish_policy_update(policy)
+    
+    def update_mqtt_client_id(self):
+        """Update MQTT client ID after validation (from temp_id to assigned_id)"""
+        if self.mqtt_client and self.validated:
+            # Disconnect with old ID
+            self.mqtt_client.disconnect()
+            
+            # Update client ID
+            self.mqtt_client.controller_id = self.assigned_id
+            
+            # Reconnect with new ID
+            self.mqtt_client.connect()
+            
+            self.logger.info(f"MQTT client ID updated to {self.assigned_id}")

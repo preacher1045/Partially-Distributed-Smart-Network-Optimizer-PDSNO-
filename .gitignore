@@ -23,7 +23,6 @@ Thumbs.db
 
 #simulation files
 sim_phase5/
-examples/
 
 # Python
 __pycache__/
@@ -129,3 +128,6 @@ docker-compose.override.yml
 *.ipynb_checkpoints/
 *.pkl
 *.pickle
+
+sim_phase5/
+sim_phase6a/
