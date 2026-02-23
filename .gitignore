@@ -23,6 +23,7 @@ Thumbs.db
 
 #simulation files
 sim_phase5/
+sim_phase6c/
 
 # Python
 __pycache__/
