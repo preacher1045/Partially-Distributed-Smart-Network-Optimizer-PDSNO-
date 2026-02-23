@@ -43,7 +43,8 @@ class RegionalController(BaseController):
         enable_rest: bool = False,
         rest_port: int = 8002,
         mqtt_broker: Optional[str] = None,
-        mqtt_port: int = 1883
+        mqtt_port: int = 1883,
+        key_manager=None  # Key distribution
     ):
         # Start with temp_id, will be updated after validation
         super().__init__(
@@ -93,7 +94,96 @@ class RegionalController(BaseController):
             )
             self.logger.info(f"MQTT client configured for broker {mqtt_broker}:{mqtt_port}")
         
+        # Phase 6D: Key distribution (optional)
+        self.key_manager = key_manager
+        self.key_protocol = None
+        self.authenticator = None
+        if key_manager:
+            from pdsno.security.key_distribution import KeyDistributionProtocol
+            self.key_protocol = KeyDistributionProtocol(self.temp_id, key_manager)
+            self.logger.info("Key distribution protocol initialized")
+        
         self.logger.info(f"Regional Controller {temp_id} initialized for region {region}")
+    
+    def perform_key_exchange(
+        self,
+        global_controller_id: str,
+        global_controller_url: str
+    ) -> bool:
+        """
+        Perform key exchange with Global Controller (Phase 6D).
+        
+        This must be done BEFORE requesting validation since
+        validation messages will be signed after key exchange.
+        
+        Args:
+            global_controller_id: Global Controller's ID
+            global_controller_url: URL to Global Controller's REST server
+        
+        Returns:
+            True if key exchange successful, False otherwise
+        """
+        if not self.key_protocol:
+            self.logger.error("Key distribution not configured")
+            return False
+        
+        if not self.http_client:
+            self.logger.error("HTTP client not configured")
+            return False
+        
+        self.logger.info(f"Initiating key exchange with {global_controller_id}")
+        
+        # Step 1: Initiate key exchange
+        init_payload = self.key_protocol.initiate_key_exchange(global_controller_id)
+        
+        # Step 2: Send KEY_EXCHANGE_INIT (unsigned, no shared secret yet)
+        try:
+            self.http_client.register_controller(global_controller_id, global_controller_url)
+            
+            response = self.http_client.send(
+                sender_id=self.temp_id,
+                recipient_id=global_controller_id,
+                message_type=MessageType.KEY_EXCHANGE_INIT,
+                payload=init_payload,
+                sign=False  # IMPORTANT: Can't sign before key exchange
+            )
+            
+            if not response:
+                self.logger.error("No response to key exchange init")
+                return False
+            
+            # Step 3: Finalize key exchange
+            self.key_protocol.finalize_key_exchange(
+                global_controller_id,
+                response.payload
+            )
+            
+            self.logger.info("Key exchange completed successfully")
+            
+            # Step 4: Create authenticator with new shared secret
+            key_id = self.key_protocol.key_manager.derive_key_id(
+                self.temp_id,
+                global_controller_id
+            )
+            shared_secret = self.key_protocol.key_manager.get_key(key_id)
+            
+            from pdsno.security.message_auth import MessageAuthenticator
+            self.authenticator = MessageAuthenticator(
+                shared_secret,
+                self.temp_id
+            )
+            
+            # Update HTTP client authenticator for future signed messages
+            if self.http_client:
+                self.http_client.authenticator = self.authenticator
+            
+            self.logger.info("Message authenticator configured")
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Key exchange failed: {e}", exc_info=True)
+            return False
     
     def request_validation(self, global_controller_id: str, global_controller_url: Optional[str] = None):
         """Request validation from the Global Controller via HTTP or message bus."""

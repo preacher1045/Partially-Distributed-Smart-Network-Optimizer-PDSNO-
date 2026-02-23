@@ -78,8 +78,16 @@ class GlobalController(BaseController):
                 MessageType.CHALLENGE_RESPONSE,
                 self.handle_challenge_response
             )
+            self.rest_server.register_handler(
+                MessageType.KEY_EXCHANGE_INIT,
+                self.handle_key_exchange_init
+            )
             
             self.logger.info(f"REST server configured on port {rest_port}")
+        
+        # Phase 6D: Key distribution (optional)
+        self.key_manager = None
+        self.key_protocol = None
         
         self.logger.info(f"Global Controller {controller_id} initialized")
     
@@ -421,6 +429,40 @@ class GlobalController(BaseController):
                 "reason": reason
             }
         )
+
+    def handle_key_exchange_init(self, envelope: MessageEnvelope) -> MessageEnvelope:
+        """
+        Handle key exchange initiation from Regional Controllers (Phase 6D).
+        
+        Args:
+            envelope: KEY_EXCHANGE_INIT message
+        
+        Returns:
+            KEY_EXCHANGE_RESPONSE envelope
+        """
+        if not self.key_protocol:
+            self.logger.error("Key distribution not configured")
+            return self._create_rejection(envelope, "Key distribution unavailable")
+        
+        self.logger.info(f"Received KEY_EXCHANGE_INIT from {envelope.sender_id}")
+        
+        # Respond to key exchange
+        try:
+            response_payload = self.key_protocol.respond_to_key_exchange(
+                envelope.payload
+            )
+            
+            # Create response envelope
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.KEY_EXCHANGE_RESPONSE,
+                payload=response_payload,
+                correlation_id=envelope.message_id
+            )
+        except Exception as e:
+            self.logger.error(f"Key exchange failed: {e}", exc_info=True)
+            return self._create_rejection(envelope, str(e))
 
     def start_rest_server_background(self):
         """Start the REST server in a background thread"""

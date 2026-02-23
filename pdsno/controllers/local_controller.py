@@ -37,7 +37,8 @@ class LocalController(BaseController):
         nib_store: NIBStore,
         message_bus=None,
         mqtt_broker: Optional[str] = None,
-        mqtt_port: int = 1883
+        mqtt_port: int = 1883,
+        key_manager=None  # Phase 6D: Key distribution
     ):
         super().__init__(
             controller_id=controller_id,
@@ -60,6 +61,14 @@ class LocalController(BaseController):
                 broker_port=mqtt_port
             )
             self.logger.info(f"MQTT client configured for broker {mqtt_broker}:{mqtt_port}")
+        
+        # Phase 6D: Key distribution (optional)
+        self.key_manager = key_manager
+        self.key_protocol = None
+        if key_manager:
+            from pdsno.security.key_distribution import KeyDistributionProtocol
+            self.key_protocol = KeyDistributionProtocol(controller_id, key_manager)
+            self.logger.info("Key distribution protocol initialized")
         
         self.logger.info(f"Local Controller {controller_id} initialized for subnet {subnet}")
     
