@@ -1,0 +1,9 @@
+version: "3.8"
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: pdsno-mosquitto
+    ports:
+      - "1883:1883"
+    restart: unless-stopped

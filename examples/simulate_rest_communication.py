@@ -71,7 +71,7 @@ except KeyboardInterrupt:
     
     # Write script to temp file
     script_path = Path("./gc_process.py")
-    script_path.write_text(script)
+    script_path.write_text(script, encoding="utf-8")
     
     # Start process
     proc = subprocess.Popen(
@@ -138,10 +138,10 @@ rc.request_validation(
 )
 
 if rc.validated:
-    print(f"✓ Validation successful! Assigned ID: {rc.assigned_id}")
+    print(f"Validation successful. Assigned ID: {rc.assigned_id}")
     rc.update_rest_server_id()
 else:
-    print("✗ Validation failed")
+    print("Validation failed")
 
 print("Regional Controller REST server running on http://localhost:8002")
 print("Press Ctrl+C to stop")
@@ -156,7 +156,7 @@ except KeyboardInterrupt:
     
     # Write script to temp file
     script_path = Path("./rc_process.py")
-    script_path.write_text(script)
+    script_path.write_text(script, encoding="utf-8")
     
     # Start process
     proc = subprocess.Popen(

@@ -1,14 +1,3 @@
-#!/usr/bin/env python3
-"""
-Global Controller - Standalone REST Server Process
-
-Starts a Global Controller with REST server on port 8001.
-Use this for manual testing of REST endpoints.
-
-Example:
-    Terminal 1: python examples/gc_process.py
-    Terminal 2: curl http://localhost:8001/health
-"""
 
 import time
 import logging
@@ -40,16 +29,11 @@ gc = GlobalController(
 gc.start_rest_server_background()
 
 print("Global Controller REST server running on http://localhost:8001")
-print("\nAvailable endpoints:")
-print("  GET  http://localhost:8001/health")
-print("  GET  http://localhost:8001/info")
-print("  POST http://localhost:8001/message/validation_request")
-print("  POST http://localhost:8001/message/challenge_response")
-print("\nPress Ctrl+C to stop")
+print("Press Ctrl+C to stop")
 
 # Keep running
 try:
     while True:
         time.sleep(1)
 except KeyboardInterrupt:
-    print("\nShutting down Global Controller")
+    print("Shutting down Global Controller")

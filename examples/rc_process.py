@@ -1,20 +1,3 @@
-#!/usr/bin/env python3
-"""
-Regional Controller - Standalone REST Server Process
-
-Starts a Regional Controller with REST server on port 8002.
-Connects to Global Controller for validation via HTTP.
-Use this for manual testing of REST endpoints.
-
-Prerequisites:
-    - Global Controller must be running on port 8001
-    - Run gc_process.py in another terminal first
-
-Example:
-    Terminal 1: python examples/gc_process.py
-    Terminal 2: python examples/rc_process.py
-    Terminal 3: curl http://localhost:8002/health
-"""
 
 import time
 import logging
@@ -60,21 +43,17 @@ rc.request_validation(
 )
 
 if rc.validated:
-    print(f"✓ Validation successful! Assigned ID: {rc.assigned_id}")
+    print(f"Validation successful. Assigned ID: {rc.assigned_id}")
     rc.update_rest_server_id()
 else:
-    print("- Validation pending or failed")
+    print("Validation failed")
 
-print("\nRegional Controller REST server running on http://localhost:8002")
-print("\nAvailable endpoints:")
-print("  GET  http://localhost:8002/health")
-print("  GET  http://localhost:8002/info")
-print("  POST http://localhost:8002/message/discovery_report")
-print("\nPress Ctrl+C to stop")
+print("Regional Controller REST server running on http://localhost:8002")
+print("Press Ctrl+C to stop")
 
 # Keep running
 try:
     while True:
         time.sleep(1)
 except KeyboardInterrupt:
-    print("\nShutting down Regional Controller")
+    print("Shutting down Regional Controller")
