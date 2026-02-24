@@ -25,6 +25,8 @@ Thumbs.db
 sim_phase5/
 sim_phase6c/
 
+.tmp_secrets/
+
 # Python
 __pycache__/
 *.py[cod]

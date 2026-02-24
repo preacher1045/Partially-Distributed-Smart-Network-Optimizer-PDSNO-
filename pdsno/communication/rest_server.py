@@ -15,9 +15,17 @@ from datetime import datetime, timezone
 import asyncio
 import threading
 import time
+import ssl
 
 from pdsno.communication.message_format import MessageEnvelope, MessageType
 from pdsno.security.message_auth import MessageAuthenticator
+from pdsno.security.rate_limiter import RateLimiter
+from pdsno.monitoring.metrics import (
+    start_metrics_server,
+    track_rest_error,
+    track_rest_latency,
+    track_rest_request
+)
 
 
 class ControllerRESTServer:
@@ -34,7 +42,17 @@ class ControllerRESTServer:
         host: str = "127.0.0.1",
         port: int = 8000,
         title: Optional[str] = None,
-        authenticator: Optional[MessageAuthenticator] = None
+        authenticator: Optional[MessageAuthenticator] = None,
+        enable_tls: bool = False,
+        cert_file: Optional[str] = None,
+        key_file: Optional[str] = None,
+        ca_file: Optional[str] = None,
+        client_cert_required: bool = False,
+        enable_rate_limiting: bool = False,
+        requests_per_minute: int = 60,
+        burst_size: int = 10,
+        enable_metrics: bool = False,
+        metrics_port: int = 9090
     ):
         """
         Initialize REST server for a controller.
@@ -50,6 +68,17 @@ class ControllerRESTServer:
         self.host = host
         self.port = port
         self.authenticator = authenticator
+        self.enable_tls = enable_tls
+        self.cert_file = cert_file
+        self.key_file = key_file
+        self.ca_file = ca_file
+        self.client_cert_required = client_cert_required
+        self.enable_rate_limiting = enable_rate_limiting
+        self.rate_limiter = (
+            RateLimiter(requests_per_minute=requests_per_minute, burst_size=burst_size)
+            if enable_rate_limiting
+            else None
+        )
         self.logger = logging.getLogger(f"{__name__}.{controller_id}")
         
         # Message handlers registry: MessageType -> handler function
@@ -70,12 +99,57 @@ class ControllerRESTServer:
             version="1.0.0",
             lifespan=lifespan
         )
+
+        if enable_metrics:
+            start_metrics_server(metrics_port)
+
+        # Register middleware
+        self._register_middlewares()
         
         # Register core routes
         self._register_core_routes()
         
         # Server task handle
         self._server_task = None
+
+    def _register_middlewares(self):
+        """Register HTTP middleware for rate limiting and metrics."""
+
+        @self.app.middleware("http")
+        async def rate_limit_middleware(request: Request, call_next):
+            start_time = time.monotonic()
+            method = request.method
+            path = request.url.path
+            client_id = self._get_client_id(request)
+
+            try:
+                if self.rate_limiter:
+                    allowed, reason = self.rate_limiter.allow_request(client_id)
+                    if not allowed:
+                        track_rest_request(method, path, "429")
+                        return JSONResponse(
+                            status_code=429,
+                            content={"error": reason or "Rate limit exceeded"}
+                        )
+
+                response = await call_next(request)
+                track_rest_request(method, path, str(response.status_code))
+                return response
+            except Exception as exc:
+                track_rest_error(method, path, type(exc).__name__)
+                raise
+            finally:
+                duration = time.monotonic() - start_time
+                track_rest_latency(method, path, duration)
+
+    @staticmethod
+    def _get_client_id(request: Request) -> str:
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip()
+        if request.client:
+            return request.client.host
+        return "unknown"
     
     def register_handler(self, message_type: MessageType, handler: Callable):
         """
@@ -183,16 +257,26 @@ class ControllerRESTServer:
     
     async def start(self):
         """Start the FastAPI server (async)"""
+        if self.enable_tls and (not self.cert_file or not self.key_file):
+            raise ValueError("TLS enabled but cert_file/key_file not provided")
+
+        cert_reqs = ssl.CERT_REQUIRED if self.client_cert_required else ssl.CERT_NONE
+
         config = uvicorn.Config(
             self.app,
             host=self.host,
             port=self.port,
             log_level="info",
-            access_log=True
+            access_log=True,
+            ssl_keyfile=self.key_file if self.enable_tls else None,
+            ssl_certfile=self.cert_file if self.enable_tls else None,
+            ssl_ca_certs=self.ca_file if self.enable_tls else None,
+            ssl_cert_reqs=cert_reqs if self.enable_tls else ssl.CERT_NONE
         )
         server = uvicorn.Server(config)
         
-        self.logger.info(f"Starting REST server on http://{self.host}:{self.port}")
+        scheme = "https" if self.enable_tls else "http"
+        self.logger.info(f"Starting REST server on {scheme}://{self.host}:{self.port}")
         await server.serve()
     
     def start_background(self):
@@ -210,7 +294,8 @@ class ControllerRESTServer:
     
     def get_base_url(self) -> str:
         """Get the base URL for this controller's API"""
-        return f"http://{self.host}:{self.port}"
+        scheme = "https" if self.enable_tls else "http"
+        return f"{scheme}://{self.host}:{self.port}"
     
     def get_endpoint_url(self, message_type: MessageType) -> str:
         """Get the full URL for a specific message type endpoint"""

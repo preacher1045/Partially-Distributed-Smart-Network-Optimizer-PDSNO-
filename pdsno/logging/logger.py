@@ -6,9 +6,13 @@ Every log entry includes timestamp, level, controller_id, and message.
 """
 
 import logging
+import logging.config
 import json
+import os
 from datetime import datetime, timezone
 from typing import Optional
+
+import yaml
 
 
 class StructuredFormatter(logging.Formatter):
@@ -73,3 +77,37 @@ def get_logger(name: str, controller_id: str = "system", level: int = logging.IN
         logger.propagate = False
     
     return logger
+
+
+def configure_logging(config_path: Optional[str] = None, default_level: int = logging.INFO) -> bool:
+    """
+    Configure logging from a YAML file. Falls back to basicConfig on failure.
+
+    Args:
+        config_path: Path to YAML logging config
+        default_level: Default log level for fallback config
+
+    Returns:
+        True if YAML config loaded, False otherwise
+    """
+    if config_path and os.path.isfile(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as handle:
+                config = yaml.safe_load(handle)
+
+            if not config:
+                raise ValueError("Logging config is empty")
+
+            for handler in config.get("handlers", {}).values():
+                filename = handler.get("filename")
+                if filename:
+                    os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+            logging.config.dictConfig(config)
+            return True
+        except Exception:
+            logging.basicConfig(level=default_level)
+            return False
+
+    logging.basicConfig(level=default_level)
+    return False

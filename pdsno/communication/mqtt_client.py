@@ -14,6 +14,7 @@ from typing import Callable, Dict, Optional, List
 from datetime import datetime, timezone
 import threading
 import time
+import ssl
 
 from pdsno.communication.message_format import MessageEnvelope, MessageType
 
@@ -34,7 +35,12 @@ class ControllerMQTTClient:
         broker_host: str = "localhost",
         broker_port: int = 1883,
         username: Optional[str] = None,
-        password: Optional[str] = None
+        password: Optional[str] = None,
+        use_tls: bool = False,
+        ca_certs: Optional[str] = None,
+        certfile: Optional[str] = None,
+        keyfile: Optional[str] = None,
+        tls_insecure: bool = False
     ):
         """
         Initialize MQTT client.
@@ -48,7 +54,15 @@ class ControllerMQTTClient:
         """
         self.controller_id = controller_id
         self.broker_host = broker_host
+        if use_tls and broker_port == 1883:
+            broker_port = 8883
+
         self.broker_port = broker_port
+        self.use_tls = use_tls
+        self.ca_certs = ca_certs
+        self.certfile = certfile
+        self.keyfile = keyfile
+        self.tls_insecure = tls_insecure
         self.logger = logging.getLogger(f"{__name__}.{controller_id}")
         
         # Create MQTT client with clean session
@@ -61,6 +75,18 @@ class ControllerMQTTClient:
         # Set authentication if provided
         if username and password:
             self.client.username_pw_set(username, password)
+
+        # Configure TLS if enabled
+        if self.use_tls:
+            cert_reqs = ssl.CERT_REQUIRED if self.ca_certs else ssl.CERT_NONE
+            self.client.tls_set(
+                ca_certs=self.ca_certs,
+                certfile=self.certfile,
+                keyfile=self.keyfile,
+                cert_reqs=cert_reqs,
+                tls_version=ssl.PROTOCOL_TLS_CLIENT
+            )
+            self.client.tls_insecure_set(self.tls_insecure)
         
         # Topic handlers: topic_pattern -> handler function
         self.handlers: Dict[str, Callable] = {}

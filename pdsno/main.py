@@ -11,7 +11,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pdsno.logging.logger import get_logger
+from pdsno.logging.logger import configure_logging, get_logger
 from pdsno import __version__
 
 
@@ -25,6 +25,8 @@ def main():
     - Configuration loading
     - Controller initialization and startup
     """
+    config_path = Path(__file__).parent.parent / "config" / "logging.yaml"
+    configure_logging(str(config_path))
     logger = get_logger(__name__, controller_id="system")
     
     logger.info(f"PDSNO v{__version__} starting...")
