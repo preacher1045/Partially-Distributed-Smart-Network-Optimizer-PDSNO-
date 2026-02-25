@@ -1,22 +1,10 @@
 """
 PDSNO Device Management Module
 
-Provides device connection and session management:
-- ConnectionManager: Persistent connection pool
-- Session: Device session abstraction
-
-Usage:
-    from pdsno.devices import ConnectionManager
-
-    conn_mgr = ConnectionManager(secret_manager)
-    conn = conn_mgr.connect(device_id)
-    result = conn_mgr.execute(device_id, commands)
+Handles persistent connections and session management for network devices.
 """
 
 from .connection_manager import ConnectionManager
-from .session import Session
+from .session import DeviceSession, SessionState
 
-__all__ = [
-    "ConnectionManager",
-    "Session",
-]
+__all__ = ['ConnectionManager', 'DeviceSession', 'SessionState']

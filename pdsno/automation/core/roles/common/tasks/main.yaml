@@ -1,0 +1,15 @@
+---
+- name: Common device setup tasks
+  block:
+    - name: Check device connectivity
+      wait_for_connection:
+        timeout: 30
+    
+    - name: Gather basic facts
+      setup:
+        gather_subset: min
+      when: ansible_facts is not defined
+    
+    - name: Set device timestamp
+      set_fact:
+        task_timestamp: "{{ ansible_date_time.iso8601 }}"

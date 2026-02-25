@@ -1,0 +1,42 @@
+---
+- name: Rollback Device Configuration
+  hosts: "{{ device_id }}"
+  gather_facts: false
+  
+  vars:
+    backup_id: "{{ backup_id }}"
+    verify_after_rollback: true
+  
+  roles:
+    - common
+  
+  tasks:
+    - name: Display rollback information
+      debug:
+        msg: "Rolling back {{ inventory_hostname }} to backup {{ backup_id }}"
+    
+    - name: Fetch backup configuration
+      set_fact:
+        backup_config: "{{ lookup('file', '/opt/pdsno/data/backups/' + backup_id + '.cfg') }}"
+    
+    - name: Apply backup configuration (Cisco)
+      ios_config:
+        src: "/opt/pdsno/data/backups/{{ backup_id }}.cfg"
+        replace: config
+      when: ansible_network_os == 'ios'
+    
+    - name: Apply backup configuration (Juniper)
+      junosconfig:
+        src: "/opt/pdsno/data/backups/{{ backup_id }}.cfg"
+        replace: yes
+      when: ansible_network_os == 'junos'
+    
+    - name: Verify rollback
+      include_role:
+        name: common
+        tasks_from: verify
+      when: verify_after_rollback | bool
+    
+    - name: Log rollback completion
+      debug:
+        msg: "Rollback completed for {{ inventory_hostname }}"

@@ -1,0 +1,40 @@
+[Unit]
+Description=PDSNO Controller Service
+After=network.target postgresql.service mosquitto.service
+Requires=network.target
+
+[Service]
+Type=simple
+User=pdsno
+Group=pdsno
+WorkingDirectory=/opt/pdsno
+
+# Environment
+Environment="PDSNO_ENV=production"
+Environment="PDSNO_DB_PATH=/opt/pdsno/data/pdsno.db"
+EnvironmentFile=/opt/pdsno/config/.env
+
+# Controller command (edit for your controller type)
+ExecStart=/usr/bin/python3 /opt/pdsno/scripts/run_controller.py \
+    --type global \
+    --port 8001 \
+    --enable-tls \
+    --cert /etc/pdsno/certs/controller-cert.pem \
+    --key /etc/pdsno/certs/controller-key.pem \
+    --db /opt/pdsno/data/pdsno.db
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pdsno-controller
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

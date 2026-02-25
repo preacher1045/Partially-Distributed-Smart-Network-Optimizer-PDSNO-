@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdsno-global-controller
+  namespace: pdsno
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pdsno-controller
+      tier: global
+  template:
+    metadata:
+      labels:
+        app: pdsno-controller
+        tier: global
+    spec:
+      containers:
+      - name: controller
+        image: pdsno/controller:latest
+        ports:
+        - containerPort: 8001
+          name: rest-api
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: PDSNO_ENV
+          value: "production"
+        - name: PDSNO_MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: pdsno-secrets
+              key: master-key
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        - name: data
+          mountPath: /app/data
+        - name: certs
+          mountPath: /app/certs
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: pdsno-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: pdsno-data
+      - name: certs
+        secret:
+          secretName: pdsno-tls
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pdsno-global-service
+  namespace: pdsno
+spec:
+  selector:
+    app: pdsno-controller
+    tier: global
+  ports:
+  - name: rest-api
+    port: 8001
+    targetPort: 8001
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+  type: LoadBalancer

@@ -1,0 +1,46 @@
+---
+- name: Verify Device State
+  hosts: all
+  gather_facts: true
+  
+  roles:
+    - common
+  
+  tasks:
+    - name: Gather device facts
+      ios_facts:
+        gather_subset: all
+      when: ansible_network_os == 'ios'
+      register: device_facts
+    
+    - name: Verify VLANs exist
+      ios_command:
+        commands:
+          - show vlan brief
+      when: ansible_network_os == 'ios'
+      register: vlan_output
+    
+    - name: Verify interfaces are up
+      ios_command:
+        commands:
+          - show ip interface brief
+      when: ansible_network_os == 'ios'
+      register: interface_output
+    
+    - name: Check for configuration drift
+      ios_command:
+        commands:
+          - show archive config differences
+      when: ansible_network_os == 'ios'
+      register: config_drift
+      ignore_errors: true
+    
+    - name: Generate verification report
+      template:
+        src: "../templates/verification_report.j2"
+        dest: "/tmp/verification_{{ inventory_hostname }}.txt"
+      delegate_to: localhost
+    
+    - name: Display verification summary
+      debug:
+        msg: "Verification complete for {{ inventory_hostname }}"

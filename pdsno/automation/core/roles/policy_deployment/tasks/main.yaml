@@ -1,0 +1,22 @@
+---
+- name: Deploy policy configuration
+  block:
+    - name: Load policy template
+      set_fact:
+        policy_config: "{{ lookup('template', 'policy_template.j2') }}"
+    
+    - name: Apply policy (Cisco IOS)
+      ios_config:
+        lines: "{{ policy_config.split('\n') }}"
+      when: ansible_network_os == 'ios'
+    
+    - name: Apply policy (Juniper)
+      junos_config:
+        lines: "{{ policy_config.split('\n') }}"
+        src_format: set
+      when: ansible_network_os == 'junos'
+    
+    - name: Save configuration
+      ios_config:
+        save_when: always
+      when: ansible_network_os == 'ios'

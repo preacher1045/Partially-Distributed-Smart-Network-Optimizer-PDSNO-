@@ -1,0 +1,60 @@
+---
+- name: Apply Base Configuration
+  hosts: all
+  gather_facts: true
+  
+  vars:
+    apply_hostname: true
+    apply_ntp: true
+    apply_logging: true
+    apply_snmp: true
+  
+  roles:
+    - common
+  
+  tasks:
+    - name: Set hostname
+      ios_config:
+        lines:
+          - hostname {{ inventory_hostname }}
+      when: 
+        - ansible_network_os == 'ios'
+        - apply_hostname | bool
+    
+    - name: Configure NTP servers
+      ios_ntp_global:
+        config:
+          servers:
+            - server: 10.0.0.1
+            - server: 10.0.0.2
+      when:
+        - ansible_network_os == 'ios'
+        - apply_ntp | bool
+    
+    - name: Configure logging
+      ios_logging_global:
+        config:
+          hosts:
+            - host: 10.0.0.10
+              transport:
+                udp:
+                  port: 514
+      when:
+        - ansible_network_os == 'ios'
+        - apply_logging | bool
+    
+    - name: Configure SNMP
+      ios_snmp_server:
+        config:
+          communities:
+            - name: public
+              ro: true
+          location: "{{ region }}"
+      when:
+        - ansible_network_os == 'ios'
+        - apply_snmp | bool
+    
+    - name: Save configuration
+      ios_config:
+        save_when: always
+      when: ansible_network_os == 'ios'

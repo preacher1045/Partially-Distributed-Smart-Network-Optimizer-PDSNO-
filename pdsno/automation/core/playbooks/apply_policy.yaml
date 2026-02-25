@@ -1,0 +1,40 @@
+---
+- name: Apply Policy to Network Devices
+  hosts: all
+  gather_facts: false
+  
+  vars:
+    policy_name: "{{ policy_name | default('default_policy') }}"
+    config_backup: true
+    verify_after_apply: true
+  
+  roles:
+    - common
+    - policy_deployment
+  
+  tasks:
+    - name: Display policy being applied
+      debug:
+        msg: "Applying policy: {{ policy_name }} to {{ inventory_hostname }}"
+    
+    - name: Create backup before applying policy
+      include_role:
+        name: common
+        tasks_from: backup
+      when: config_backup | bool
+    
+    - name: Apply policy configuration
+      include_role:
+        name: policy_deployment
+      vars:
+        target_policy: "{{ policy_name }}"
+    
+    - name: Verify configuration
+      include_role:
+        name: common
+        tasks_from: verify
+      when: verify_after_apply | bool
+    
+    - name: Log policy application
+      debug:
+        msg: "Policy {{ policy_name }} applied successfully to {{ inventory_hostname }}"

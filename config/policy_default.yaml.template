@@ -1,0 +1,33 @@
+# PDSNO Default Policy Configuration
+
+validation:
+  timestamp_freshness_seconds: 300
+  challenge_timeout_seconds: 30
+  bootstrap_token_single_use: true
+
+approval:
+  sensitivity_levels:
+    LOW:
+      auto_approve: true
+      approver: local_controller
+    MEDIUM:
+      auto_approve: false
+      approver: regional_controller
+    HIGH:
+      auto_approve: false
+      approver: global_controller
+
+execution:
+  token_validity_minutes: 15
+  pre_execution_backup: true
+  verification_required: true
+
+rollback:
+  automatic_on_failure: true
+  keep_backup_count: 10
+  backup_retention_days: 30
+
+rate_limiting:
+  api_requests_per_minute: 100
+  authentication_attempts_per_minute: 5
+  lockout_duration_minutes: 15

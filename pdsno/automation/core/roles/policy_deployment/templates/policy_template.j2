@@ -1,0 +1,35 @@
+{% if ansible_network_os == 'ios' %}
+! Policy: {{ policy_name }}
+! Generated: {{ ansible_date_time.iso8601 }}
+! Device: {{ inventory_hostname }}
+
+vlan {{ policy_vlan_id | default(100) }}
+    name {{ policy_vlan_name | default('PolicyVLAN') }}
+
+{% for interface in policy_interfaces | default([]) %}
+interface {{ interface.name }}
+    description {{ interface.description | default('Policy interface') }}
+    {% if interface.type == 'access' %}
+    switchport mode access
+    switchport access vlan {{ interface.vlan }}
+    {% elif interface.type == 'trunk' %}
+    switchport mode trunk
+    switchport trunk allowed vlan {{ interface.vlans | join(',') }}
+    {% endif %}
+    no shutdown
+{% endfor %}
+
+{% elif ansible_network_os == 'junos' %}
+# Policy: {{ policy_name }}
+# Generated: {{ ansible_date_time.iso8601 }}
+
+set vlans {{ policy_vlan_name | default('PolicyVLAN') }} vlan-id {{ policy_vlan_id | default(100) }}
+
+{% for interface in policy_interfaces | default([]) %}
+set interfaces {{ interface.name }} description "{{ interface.description | default('Policy interface') }}"
+{% if interface.type == 'access' %}
+set interfaces {{ interface.name }} unit 0 family ethernet-switching interface-mode access
+set interfaces {{ interface.name }} unit 0 family ethernet-switching vlan members {{ interface.vlan }}
+{% endif %}
+{% endfor %}
+{% endif %}

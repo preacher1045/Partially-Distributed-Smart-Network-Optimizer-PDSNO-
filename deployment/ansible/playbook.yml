@@ -1,0 +1,79 @@
+---
+- name: Deploy PDSNO Controllers
+  hosts: controllers
+  become: yes
+  vars:
+    pdsno_version: "1.0.0"
+    pdsno_home: "/opt/pdsno"
+    pdsno_user: "pdsno"
+    
+  tasks:
+    - name: Create PDSNO user
+      user:
+        name: "{{ pdsno_user }}"
+        system: yes
+        create_home: no
+    
+    - name: Install system dependencies
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - postgresql-client
+        state: present
+        update_cache: yes
+    
+    - name: Create directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ pdsno_user }}"
+        group: "{{ pdsno_user }}"
+        mode: '0755'
+      loop:
+        - "{{ pdsno_home }}"
+        - "{{ pdsno_home }}/data"
+        - "{{ pdsno_home }}/logs"
+        - "{{ pdsno_home }}/config"
+        - "/etc/pdsno/certs"
+    
+    - name: Copy PDSNO code
+      synchronize:
+        src: ../../
+        dest: "{{ pdsno_home }}/"
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=__pycache__"
+    
+    - name: Install Python dependencies
+      pip:
+        requirements: "{{ pdsno_home }}/requirements.txt"
+        executable: pip3
+    
+    - name: Generate TLS certificates
+      command: bash {{ pdsno_home }}/scripts/generate_certs.sh
+      args:
+        creates: /etc/pdsno/certs/controller-cert.pem
+    
+    - name: Initialize database
+      command: python3 {{ pdsno_home }}/scripts/init_db.py
+      args:
+        creates: "{{ pdsno_home }}/data/pdsno.db"
+      become_user: "{{ pdsno_user }}"
+    
+    - name: Install systemd service
+      template:
+        src: pdsno-controller.service.j2
+        dest: /etc/systemd/system/pdsno-controller.service
+      notify: reload systemd
+    
+    - name: Start PDSNO controller
+      systemd:
+        name: pdsno-controller
+        state: started
+        enabled: yes
+  
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes

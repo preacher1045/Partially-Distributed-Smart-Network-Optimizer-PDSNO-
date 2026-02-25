@@ -1,0 +1,41 @@
+# PDSNO Runtime Context Configuration
+
+controller:
+  id: global_cntl_1
+  role: global  # global, regional, local
+  region: null  # null for global, zone-A for regional/local
+
+network:
+  rest_port: 8001
+  mqtt_broker: localhost
+  mqtt_port: 1883
+  enable_tls: false
+
+database:
+  path: config/pdsno.db
+  pool_size: 10
+  timeout: 30
+
+security:
+  master_key_file: config/master.key
+  bootstrap_secret_file: config/bootstrap_secret.key
+  cert_file: /etc/pdsno/certs/controller-cert.pem
+  key_file: /etc/pdsno/certs/controller-key.pem
+
+discovery:
+  enabled: true
+  interval_seconds: 300
+  protocols:
+    - arp
+    - icmp
+    - snmp
+
+logging:
+  level: INFO
+  file: /var/log/pdsno/controller.log
+  max_bytes: 10485760  # 10MB
+  backup_count: 10
+
+monitoring:
+  prometheus_port: 9090
+  health_check_interval: 30

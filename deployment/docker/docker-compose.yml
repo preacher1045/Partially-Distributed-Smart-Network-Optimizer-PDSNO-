@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  global-controller:
+    build: .
+    container_name: pdsno-global
+    ports:
+      - "8001:8001"
+      - "9090:9090"
+    environment:
+      - PDSNO_ENV=production
+      - PDSNO_DB_PATH=/app/data/pdsno.db
+      - PDSNO_MASTER_KEY=${PDSNO_MASTER_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./certs:/app/certs:ro
+    depends_on:
+      - db
+      - mqtt
+    restart: unless-stopped
+    networks:
+      - pdsno-net
+
+  regional-controller-zone-a:
+    build: .
+    container_name: pdsno-regional-a
+    ports:
+      - "8002:8001"
+    environment:
+      - PDSNO_ENV=production
+    command: >
+      python scripts/run_controller.py
+      --type regional
+      --region zone-A
+      --parent global_cntl_1
+      --port 8001
+    depends_on:
+      - global-controller
+    restart: unless-stopped
+    networks:
+      - pdsno-net
+
+  db:
+    image: postgres:15
+    container_name: pdsno-db
+    environment:
+      - POSTGRES_USER=pdsno
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=pdsno
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - pdsno-net
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: pdsno-mqtt
+    ports:
+      - "1883:1883"
+      - "8883:8883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./certs:/mosquitto/certs:ro
+    restart: unless-stopped
+    networks:
+      - pdsno-net
+
+volumes:
+  pgdata:
+
+networks:
+  pdsno-net:
+    driver: bridge
