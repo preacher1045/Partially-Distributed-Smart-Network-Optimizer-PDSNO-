@@ -27,6 +27,8 @@ sim_phase6c/
 
 .tmp_secrets/
 
+workspace.txt
+
 # Python
 __pycache__/
 *.py[cod]
