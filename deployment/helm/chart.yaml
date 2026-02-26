@@ -1,0 +1,27 @@
+apiVersion: v2
+name: pdsno
+description: Partially Distributed Software-Defined Network Orchestrator
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+keywords:
+  - sdn
+  - network
+  - orchestration
+  - automation
+
+maintainers:
+  - name: PDSNO Team
+    email: team@pdsno.io
+
+dependencies:
+  - name: postgresql
+    version: "12.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  
+  - name: mosquitto
+    version: "2.x.x"
+    repository: https://k8s-at-home.com/charts/
+    condition: mqtt.enabled

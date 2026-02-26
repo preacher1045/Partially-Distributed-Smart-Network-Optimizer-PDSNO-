@@ -1,0 +1,189 @@
+# PDSNO Helm Chart Values
+
+# Global configuration
+global:
+  storageClass: standard
+  imagePullSecrets: []
+
+# Image configuration
+image:
+  repository: pdsno/controller
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+
+# Global Controller
+globalController:
+  enabled: true
+  replicaCount: 1
+  
+  service:
+    type: LoadBalancer
+    port: 8001
+    metricsPort: 9090
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  env:
+    PDSNO_ENV: production
+    PDSNO_LOG_LEVEL: INFO
+  
+  # TLS configuration
+  tls:
+    enabled: true
+    existingSecret: pdsno-tls
+    certFile: tls.crt
+    keyFile: tls.key
+
+# Regional Controllers
+regionalControllers:
+  enabled: true
+  regions:
+    - name: zone-a
+      replicaCount: 1
+      parent: global_cntl_1
+    - name: zone-b
+      replicaCount: 1
+      parent: global_cntl_1
+  
+  service:
+    type: ClusterIP
+    port: 8001
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+# Local Controllers
+localControllers:
+  enabled: false
+  # Local controllers typically run outside K8s cluster
+
+# PostgreSQL (managed by subchart)
+postgresql:
+  enabled: true
+  auth:
+    username: pdsno
+    password: changeme
+    database: pdsno
+  
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+    
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+# MQTT Broker (Mosquitto)
+mqtt:
+  enabled: true
+  
+  service:
+    type: ClusterIP
+    ports:
+      mqtt: 1883
+      mqttTls: 8883
+  
+  persistence:
+    enabled: true
+    size: 1Gi
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  tls:
+    enabled: true
+    existingSecret: mosquitto-tls
+
+# Persistent Storage
+persistence:
+  enabled: true
+  storageClass: standard
+  
+  data:
+    size: 20Gi
+  
+  logs:
+    size: 10Gi
+  
+  backups:
+    size: 50Gi
+
+# Monitoring
+monitoring:
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+  
+  grafana:
+    enabled: true
+    dashboards:
+      enabled: true
+
+# Security
+security:
+  rbac:
+    create: true
+  
+  podSecurityPolicy:
+    enabled: false
+  
+  networkPolicy:
+    enabled: true
+
+# Ingress
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  
+  hosts:
+    - host: pdsno.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  
+  tls:
+    - secretName: pdsno-tls
+      hosts:
+        - pdsno.example.com
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}

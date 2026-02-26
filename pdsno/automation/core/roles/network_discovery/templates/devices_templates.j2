@@ -1,0 +1,49 @@
+    {
+    "device_id": "{{ inventory_hostname }}",
+    "discovery_timestamp": "{{ ansible_date_time.iso8601 }}",
+    "device_info": {
+        "vendor": "{{ ansible_network_os }}",
+        "model": "{{ ansible_net_model | default('unknown') }}",
+        "version": "{{ ansible_net_version | default('unknown') }}",
+        "serial": "{{ ansible_net_serialnum | default('unknown') }}",
+        "hostname": "{{ ansible_net_hostname | default(inventory_hostname) }}"
+    },
+    "interfaces": [
+        {% if ansible_network_os == 'ios' and interfaces_cisco is defined %}
+        {% for line in interfaces_cisco.stdout_lines[0] %}
+        {% if not line.startswith('Interface') %}
+        {
+        "name": "{{ line.split()[0] }}",
+        "ip_address": "{{ line.split()[1] if line.split()[1] != 'unassigned' else null }}",
+        "status": "{{ line.split()[-2] }}",
+        "protocol": "{{ line.split()[-1] }}"
+        }{{ ',' if not loop.last else '' }}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+    ],
+    "vlans": [
+        {% if ansible_network_os == 'ios' and vlans_cisco is defined %}
+        {% for line in vlans_cisco.stdout_lines[0] %}
+        {% if line.split()[0].isdigit() %}
+        {
+        "vlan_id": {{ line.split()[0] }},
+        "name": "{{ line.split()[1] }}",
+        "status": "{{ line.split()[2] }}"
+        }{{ ',' if not loop.last else '' }}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+    ],
+    "neighbors": [
+        {% if ansible_network_os == 'ios' and lldp_cisco is defined %}
+        {
+        "protocol": "LLDP",
+        "neighbors": "{{ lldp_cisco.stdout[0] | regex_findall('Device ID: (.+)') }}"
+        }
+        {% endif %}
+    ],
+    "routing": {
+        "routes_count": {{ routes_cisco.stdout_lines[0] | length if routes_cisco is defined else 0 }}
+    }
+}

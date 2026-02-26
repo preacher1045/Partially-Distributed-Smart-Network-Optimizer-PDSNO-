@@ -1,7 +1,7 @@
 ---
 - name: Deploy PDSNO Controllers
   hosts: controllers
-  become: yes
+  become: true
   vars:
     pdsno_version: "1.0.0"
     pdsno_home: "/opt/pdsno"
@@ -11,8 +11,8 @@
     - name: Create PDSNO user
       user:
         name: "{{ pdsno_user }}"
-        system: yes
-        create_home: no
+        system: true
+        create_home: false
     
     - name: Install system dependencies
       apt:
@@ -21,7 +21,7 @@
           - python3-pip
           - postgresql-client
         state: present
-        update_cache: yes
+        update_cache: true
     
     - name: Create directories
       file:
@@ -71,9 +71,9 @@
       systemd:
         name: pdsno-controller
         state: started
-        enabled: yes
+        enabled: true
   
   handlers:
     - name: reload systemd
       systemd:
-        daemon_reload: yes
+        daemon_reload: true

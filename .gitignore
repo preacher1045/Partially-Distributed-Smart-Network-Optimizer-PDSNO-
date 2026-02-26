@@ -28,7 +28,10 @@ sim_phase6c/
 .tmp_secrets/
 
 workspace.txt
+end_to_end_pyTest.txt
 
+#test encryptions
+secrets/
 # Python
 __pycache__/
 *.py[cod]

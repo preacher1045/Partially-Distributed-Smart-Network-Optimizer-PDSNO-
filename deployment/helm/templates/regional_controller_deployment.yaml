@@ -1,0 +1,65 @@
+{{- if .Values.regionalControllers.enabled }}
+{{- range .Values.regionalControllers.regions }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pdsno.fullname" $ }}-regional-{{ .name }}
+  labels:
+    {{- include "pdsno.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: regional-controller
+    pdsno.io/region: {{ .name }}
+spec:
+  replicas: {{ .replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "pdsno.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: regional-controller
+      pdsno.io/region: {{ .name }}
+  template:
+    metadata:
+      labels:
+        {{- include "pdsno.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: regional-controller
+        pdsno.io/region: {{ .name }}
+    spec:
+      serviceAccountName: {{ include "pdsno.serviceAccountName" $ }}
+      containers:
+      - name: controller
+        image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag | default $.Chart.AppVersion }}"
+        imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        command:
+          - python
+          - scripts/run_controller.py
+          - --type
+          - regional
+          - --region
+          - {{ .name }}
+          - --parent
+          - {{ .parent }}
+          - --port
+          - "8001"
+        ports:
+          - name: rest-api
+            containerPort: 8001
+        env:
+          - name: PDSNO_ENV
+            value: production
+          - name: PDSNO_DB_PATH
+            value: /app/data/pdsno.db
+        volumeMounts:
+          - name: config
+            mountPath: /app/config
+          - name: data
+            mountPath: /app/data
+        resources:
+          {{- toYaml $.Values.regionalControllers.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "pdsno.fullname" $ }}-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "pdsno.fullname" $ }}-data
+{{- end }}
+{{- end }}

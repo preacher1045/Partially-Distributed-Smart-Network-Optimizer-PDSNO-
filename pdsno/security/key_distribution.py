@@ -31,13 +31,21 @@ class DHKeyExchange:
     Provides perfect forward secrecy and resistance to passive eavesdropping.
     """
     
-    # Standard 2048-bit DH parameters (RFC 3526)
-    # In production, generate new parameters or use standardized groups
-    DH_PARAMETERS = dh.generate_parameters(
-        generator=2,
-        key_size=2048,
-        backend=default_backend()
-    )
+    # Lazily initialized DH parameters (avoid slow generation at import time)
+    _dh_parameters = None
+    
+    @classmethod
+    def get_dh_parameters(cls):
+        """Get or generate DH parameters (lazy initialization)."""
+        if cls._dh_parameters is None:
+            # Standard 2048-bit DH parameters (RFC 3526)
+            # In production, use pre-generated parameters or standardized groups
+            cls._dh_parameters = dh.generate_parameters(
+                generator=2,
+                key_size=2048,
+                backend=default_backend()
+            )
+        return cls._dh_parameters
     
     def __init__(self, controller_id: str):
         """
@@ -49,8 +57,9 @@ class DHKeyExchange:
         self.controller_id = controller_id
         self.logger = logging.getLogger(f"{__name__}.{controller_id}")
         
-        # Generate ephemeral private key
-        self.private_key = self.DH_PARAMETERS.generate_private_key()
+        # Generate ephemeral private key (uses lazy DH parameters)
+        params = self.get_dh_parameters()
+        self.private_key = params.generate_private_key()
         self.public_key = self.private_key.public_key()
         
         self.logger.info("DH key exchange initialized (2048-bit)")

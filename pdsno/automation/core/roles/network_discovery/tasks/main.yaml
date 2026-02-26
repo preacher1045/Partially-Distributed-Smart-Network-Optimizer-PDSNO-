@@ -1,0 +1,111 @@
+---
+# Network discovery tasks
+
+- name: Gather network facts
+  block:
+    - name: Get Cisco device facts
+      ios_facts:
+        gather_subset: all
+      when: ansible_network_os == 'ios'
+      register: cisco_facts
+    
+    - name: Get Juniper device facts
+      junos_facts:
+        gather_subset: all
+      when: ansible_network_os == 'junos'
+      register: juniper_facts
+    
+    - name: Get Arista device facts
+      eos_facts:
+        gather_subset: all
+      when: ansible_network_os == 'eos'
+      register: arista_facts
+
+- name: Discover network topology
+  block:
+    - name: Get LLDP neighbors (Cisco)
+      ios_command:
+        commands:
+          - show lldp neighbors detail
+      when: ansible_network_os == 'ios'
+      register: lldp_cisco
+    
+    - name: Get LLDP neighbors (Juniper)
+      junos_command:
+        commands:
+          - show lldp neighbors
+      when: ansible_network_os == 'junos'
+      register: lldp_juniper
+    
+    - name: Get LLDP neighbors (Arista)
+      eos_command:
+        commands:
+          - show lldp neighbors
+      when: ansible_network_os == 'eos'
+      register: lldp_arista
+
+- name: Get interface information
+  block:
+    - name: Get interfaces (Cisco)
+      ios_command:
+        commands:
+          - show ip interface brief
+          - show interface status
+      when: ansible_network_os == 'ios'
+      register: interfaces_cisco
+    
+    - name: Get interfaces (Juniper)
+      junos_command:
+        commands:
+          - show interfaces terse
+      when: ansible_network_os == 'junos'
+      register: interfaces_juniper
+
+- name: Get VLAN information
+  block:
+    - name: Get VLANs (Cisco)
+      ios_command:
+        commands:
+          - show vlan brief
+      when: ansible_network_os == 'ios'
+      register: vlans_cisco
+    
+    - name: Get VLANs (Juniper)
+      junos_command:
+        commands:
+          - show vlans
+      when: ansible_network_os == 'junos'
+      register: vlans_juniper
+
+- name: Get routing information
+  block:
+    - name: Get routing table (Cisco)
+      ios_command:
+        commands:
+          - show ip route
+      when: ansible_network_os == 'ios'
+      register: routes_cisco
+    
+    - name: Get routing table (Juniper)
+      junos_command:
+        commands:
+          - show route
+      when: ansible_network_os == 'junos'
+      register: routes_juniper
+
+- name: Generate discovery report
+  template:
+    src: device_templates.j2
+    dest: "/tmp/discovery_{{ inventory_hostname }}.json"
+  delegate_to: localhost
+
+- name: Upload discovery data to NIB
+  uri:
+    url: "http://{{ pdsno_controller }}/api/v1/devices/{{ inventory_hostname }}/discovery"
+    method: POST
+    body_format: json
+    body: "{{ lookup('file', '/tmp/discovery_' + inventory_hostname + '.json') }}"
+    headers:
+      Content-Type: application/json
+      Authorization: "Bearer {{ pdsno_api_token }}"
+  delegate_to: localhost

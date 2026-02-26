@@ -45,6 +45,10 @@ class NIBStore:
         
         # Initialize schema
         self._initialize_schema()
+        
+        # Enable foreign keys by default
+        with self._get_connection() as conn:
+            conn.execute("PRAGMA foreign_keys = ON")
     
     @contextmanager
     def _get_connection(self):
@@ -344,6 +348,113 @@ class NIBStore:
                 )
                 
                 return NIBResult(success=True, data=controller.controller_id)
+            
+    # Add these methods to the NIBStore class in sqlite_store.py
+
+            
+    # ===== Config Operations =====
+
+    def upsert_config(self, config: Config) -> NIBResult:
+        """
+        Insert or update configuration record with optimistic locking.
+        
+        Args:
+            config: Config object to store
+        
+        Returns:
+            NIBResult with success status
+        """
+        with self._get_connection() as conn:
+            # Check if config exists
+            existing = self.get_config(config.config_id)
+            
+            if existing:
+                # Update with version check
+                cursor = conn.execute(
+                    """
+                    UPDATE configs SET
+                        device_id = ?, config_data = ?, status = ?,
+                        proposed_by = ?, approved_by = ?,
+                        proposed_at = ?, approved_at = ?, applied_at = ?,
+                        reason = ?, version = version + 1
+                    WHERE config_id = ? AND version = ?
+                    """,
+                    (
+                        config.device_id, config.config_data, config.status.value,
+                        config.proposed_by, config.approved_by,
+                        config.proposed_at.isoformat() if config.proposed_at else None,
+                        config.approved_at.isoformat() if config.approved_at else None,
+                        config.applied_at.isoformat() if config.applied_at else None,
+                        config.reason, config.config_id, config.version
+                    )
+                )
+                
+                if cursor.rowcount == 0:
+                    return NIBResult(
+                        success=False,
+                        error="CONFLICT: Version mismatch - config was modified by another process",
+                        conflict=True
+                    )
+                
+                return NIBResult(success=True, data=config.config_id)
+            else:
+                # Insert new config
+                config.proposed_at = config.proposed_at or datetime.now(timezone.utc)
+                
+                conn.execute(
+                    """
+                    INSERT INTO configs (
+                        config_id, device_id, config_data, status,
+                        proposed_by, approved_by, proposed_at, approved_at,
+                        applied_at, reason, version
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        config.config_id, config.device_id, config.config_data,
+                        config.status.value, config.proposed_by, config.approved_by,
+                        config.proposed_at.isoformat() if config.proposed_at else None,
+                        config.approved_at.isoformat() if config.approved_at else None,
+                        config.applied_at.isoformat() if config.applied_at else None,
+                        config.reason, 0
+                    )
+                )
+                
+                return NIBResult(success=True, data=config.config_id)
+
+
+    def get_config(self, config_id: str) -> Optional[Config]:
+        """
+        Get configuration record by ID.
+        
+        Args:
+            config_id: Configuration ID
+        
+        Returns:
+            Config object or None
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM configs WHERE config_id = ?",
+                (config_id,)
+            )
+            row = cursor.fetchone()
+            
+            if row:
+                return Config(
+                    config_id=row['config_id'],
+                    device_id=row['device_id'],
+                    config_data=row['config_data'],
+                    status=ConfigStatus(row['status']),
+                    proposed_by=row['proposed_by'],
+                    approved_by=row['approved_by'],
+                    proposed_at=datetime.fromisoformat(row['proposed_at']) if row['proposed_at'] else None,
+                    approved_at=datetime.fromisoformat(row['approved_at']) if row['approved_at'] else None,
+                    applied_at=datetime.fromisoformat(row['applied_at']) if row['applied_at'] else None,
+                    reason=row['reason'],
+                    version=row['version']
+                )
+            
+            return None
 
     def _row_to_controller(self, row: sqlite3.Row) -> Controller:
         """Convert database row to Controller object"""

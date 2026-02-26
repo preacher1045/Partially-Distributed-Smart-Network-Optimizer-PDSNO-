@@ -1,0 +1,49 @@
+---
+# Common handlers for all roles
+
+- name: reload systemd
+  systemd:
+    daemon_reload: true
+  become: true
+
+- name: restart sshd
+  service:
+    name: sshd
+    state: restarted
+  become: true
+
+- name: reload network
+  service:
+    name: NetworkManager
+    state: reloaded
+  become: true
+  when: ansible_os_family == "RedHat"
+
+- name: save cisco config
+  ios_command:
+    commands:
+      - write memory
+  when: ansible_network_os == 'ios'
+
+- name: commit juniper config
+  junos_command:
+    commands:
+      - commit
+  when: ansible_network_os == 'junos'
+
+- name: save arista config
+  eos_command:
+    commands:
+      - write memory
+  when: ansible_network_os == 'eos'
+
+- name: backup config
+  ios_command:
+    commands:
+      - show running-config
+  register: backup_output
+  when: ansible_network_os == 'ios'
+
+- name: send notification
+  debug:
+    msg: "Configuration change detected on {{ inventory_hostname }}"

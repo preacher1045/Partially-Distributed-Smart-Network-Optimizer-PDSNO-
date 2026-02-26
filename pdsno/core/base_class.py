@@ -6,13 +6,13 @@ initialize → execute → finalize
 
 Design notes:
 - initialize() receives all external data via `context` and stores it as instance
-  variables. execute() and finalize() operate on that stored state.
+    variables. execute() and finalize() operate on that stored state.
 - This means each AlgorithmBase instance is single-use: initialize → execute → finalize.
-  Do not reuse an instance across multiple runs. Controllers are responsible for
-  instantiating a fresh object for each execution cycle.
+    Do not reuse an instance across multiple runs. Controllers are responsible for
+    instantiating a fresh object for each execution cycle.
 - Algorithms are NOT thread-safe by default. If a controller runs multiple algorithms
-  concurrently, each must run in its own instance. Shared resources (NIB, context store)
-  must be accessed through their thread-safe managers, not directly.
+    concurrently, each must run in its own instance. Shared resources (NIB, context store)
+    must be accessed through their thread-safe managers, not directly.
 """
 
 from abc import ABC, abstractmethod

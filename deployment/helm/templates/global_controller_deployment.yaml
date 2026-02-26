@@ -1,0 +1,111 @@
+{{- if .Values.globalController.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pdsno.fullname" . }}-global
+  labels:
+    {{- include "pdsno.labels" . | nindent 4 }}
+    app.kubernetes.io/component: global-controller
+spec:
+  replicas: {{ .Values.globalController.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pdsno.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: global-controller
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "pdsno.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: global-controller
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "pdsno.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: controller
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+          - python
+          - scripts/run_controller.py
+          - --type
+          - global
+          - --port
+          - "8001"
+          {{- if .Values.globalController.tls.enabled }}
+          - --enable-tls
+          - --cert
+          - /etc/pdsno/certs/{{ .Values.globalController.tls.certFile }}
+          - --key
+          - /etc/pdsno/certs/{{ .Values.globalController.tls.keyFile }}
+          {{- end }}
+        ports:
+          - name: rest-api
+            containerPort: 8001
+            protocol: TCP
+          - name: metrics
+            containerPort: 9090
+            protocol: TCP
+        env:
+          {{- range $key, $value := .Values.globalController.env }}
+          - name: {{ $key }}
+            value: {{ $value | quote }}
+          {{- end }}
+          - name: PDSNO_DB_PATH
+            value: /app/data/pdsno.db
+          - name: PDSNO_MASTER_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "pdsno.fullname" . }}-secrets
+                key: master-key
+        volumeMounts:
+          - name: config
+            mountPath: /app/config
+          - name: data
+            mountPath: /app/data
+          {{- if .Values.globalController.tls.enabled }}
+          - name: certs
+            mountPath: /etc/pdsno/certs
+            readOnly: true
+          {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: rest-api
+            {{- if .Values.globalController.tls.enabled }}
+            scheme: HTTPS
+            {{- end }}
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: rest-api
+            {{- if .Values.globalController.tls.enabled }}
+            scheme: HTTPS
+            {{- end }}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.globalController.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "pdsno.fullname" . }}-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "pdsno.fullname" . }}-data
+        {{- if .Values.globalController.tls.enabled }}
+        - name: certs
+          secret:
+            secretName: {{ .Values.globalController.tls.existingSecret }}
+        {{- end }}
+{{- end }}

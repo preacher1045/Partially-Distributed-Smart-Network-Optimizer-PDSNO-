@@ -1,0 +1,42 @@
+---
+# Common variables for all playbooks
+
+# NTP servers
+ntp_servers:
+  - 10.0.0.1
+  - 10.0.0.2
+
+# DNS servers
+dns_servers:
+  - 8.8.8.8
+  - 8.8.4.4
+
+# Syslog server
+syslog_server: 10.0.0.10
+syslog_port: 514
+
+# SNMP community
+snmp_community: public
+snmp_location: "{{ region | default('default') }}"
+snmp_contact: "network-admin@example.com"
+
+# Backup settings
+backup_enabled: true
+backup_path: /opt/pdsno/data/backups
+backup_retention_days: 30
+
+# Timeout settings
+connection_timeout: 30
+command_timeout: 60
+
+# Retry settings
+max_retries: 3
+retry_delay: 5
+
+# Verification settings
+verify_config: true
+verify_timeout: 120
+
+# Logging
+log_level: INFO
+log_file: /var/log/pdsno/automation.log
