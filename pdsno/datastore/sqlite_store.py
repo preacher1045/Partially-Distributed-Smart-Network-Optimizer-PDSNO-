@@ -10,14 +10,15 @@ import json
 import hmac
 import hashlib
 import uuid
+import logging
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from contextlib import contextmanager
 
 from .models import (
-    Device, Config, Policy, Event, Lock, Controller, NIBResult,
-    DeviceStatus, ConfigStatus, LockType
+    Device, Config, Event, Lock, Controller, NIBResult, DeviceStatus,
+    ConfigStatus, LockType
 )
 
 
@@ -37,6 +38,7 @@ class NIBStore:
             db_path: Path to SQLite database file
             secret_key: Secret key for HMAC signatures (event log integrity)
         """
+        self.logger = logging.getLogger(__name__)
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         
@@ -46,9 +48,12 @@ class NIBStore:
         # Initialize schema
         self._initialize_schema()
         
-        # Enable foreign keys by default
+        # Enable foreign keys by default for all connections
         with self._get_connection() as conn:
             conn.execute("PRAGMA foreign_keys = ON")
+            conn.commit()
+            
+        self.logger.debug("Foreign keys enabled for database")
     
     @contextmanager
     def _get_connection(self):

@@ -7,7 +7,6 @@ Validates user-submitted Ansible playbooks for security and correctness.
 import yaml
 import re
 from typing import Dict, List, Tuple
-from pathlib import Path
 import logging
 
 

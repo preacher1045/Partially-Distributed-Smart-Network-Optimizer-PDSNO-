@@ -8,17 +8,17 @@ and maintains global state.
 import hmac
 import hashlib
 import json
+import os
 import secrets
 import uuid
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Optional
+from typing import Dict
 
 from pdsno.controllers.base_controller import BaseController
 from pdsno.communication.message_format import MessageEnvelope, MessageType
 from pdsno.datastore import NIBStore
 from pdsno.datastore.models import Controller, Event
 from pdsno.controllers.context_manager import ContextManager
-from pdsno.logging.logger import get_logger
 from pdsno.communication.rest_server import ControllerRESTServer
 
 
@@ -36,7 +36,11 @@ class GlobalController(BaseController):
     # Configuration constants
     FRESHNESS_WINDOW_MINUTES = 5
     CHALLENGE_TIMEOUT_SECONDS = 30
-    BOOTSTRAP_SECRET = b"pdsno-bootstrap-secret-change-in-production"
+    # Default value for development/testing - MUST be set via env var in production
+    BOOTSTRAP_SECRET = os.getenv(
+        "PDSNO_BOOTSTRAP_SECRET",
+        "pdsno-bootstrap-secret-change-in-production"
+    ).encode()
     
     def __init__(
         self,

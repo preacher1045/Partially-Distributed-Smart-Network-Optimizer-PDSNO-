@@ -10,7 +10,6 @@ from jnpr.junos import Device
 from jnpr.junos.utils.config import Config
 from jnpr.junos.exception import ConnectError, ConfigLoadError, CommitError
 from .base_adapter import VendorAdapter, ConfigIntent, IntentType
-import logging
 
 
 class JuniperAdapter(VendorAdapter):

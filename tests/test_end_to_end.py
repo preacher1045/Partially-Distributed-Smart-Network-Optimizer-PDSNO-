@@ -20,7 +20,18 @@ from pdsno.adapters import VendorAdapterFactory, ConfigIntent, IntentType
 
 @pytest.fixture
 def integration_setup(tmp_path):
-    """Setup complete PDSNO environment"""
+    """
+    Setup complete PDSNO environment for integration testing.
+    
+    Creates:
+        - Temporary SQLite database for NIB storage
+        - MessageBus for controller communication
+        - ContextManager for configuration
+        - GlobalController, RegionalController, and LocalController instances
+    
+    Returns:
+        dict: Contains 'gc', 'rc', 'lc', 'nib', 'message_bus', 'db_path'
+    """
     # Create temporary directories
     db_path = tmp_path / "pdsno.db"
     config_path = tmp_path / "context.yaml"
@@ -68,27 +79,39 @@ class TestEndToEndWorkflows:
     """Test complete end-to-end workflows"""
     
     def test_controller_validation_workflow(self, integration_setup):
-        """Test complete controller validation flow"""
+        """
+        Test complete controller validation flow (6-step protocol).
+        
+        Verifies:
+            1. Regional Controller can request validation from Global Controller
+            2. Challenge-response authentication completes successfully
+            3. RC receives assigned_id after validation
+            4. RC.validated flag is set to True
+        
+        Skipped if: RegionalController._handle_challenge not implemented
+        """
         gc = integration_setup['gc']
         rc = integration_setup['rc']
         message_bus = integration_setup['message_bus']
         
         # Check if required methods exist before proceeding
-        if not hasattr(rc, 'handle_challenge'):
-            pytest.skip("RegionalController.handle_challenge not implemented yet")
+        if not hasattr(rc, '_handle_challenge'):
+            pytest.skip("RegionalController._handle_challenge not implemented yet")
         
-        # Use correct handler names
+        from pdsno.communication.message_format import MessageType
+        
+        # Use MessageType enum as keys (required by MessageBus)
         gc_handlers = {
-            'VALIDATION_REQUEST': gc.handle_validation_request,
-            'CHALLENGE_RESPONSE': gc.handle_challenge_response
+            MessageType.VALIDATION_REQUEST: gc.handle_validation_request,
+            MessageType.CHALLENGE_RESPONSE: gc.handle_challenge_response
         }
         message_bus.register_controller("global_cntl_1", gc_handlers)
         
         # Register RC with correct handler names
         rc_handlers = {
-            'VALIDATION_CHALLENGE': rc.handle_challenge
+            MessageType.CHALLENGE: rc._handle_challenge
         }
-        message_bus.register_controller(rc.temp_id, rc_handlers)
+        message_bus.register_controller(rc.controller_id, rc_handlers)
         
         # Request validation
         try:
@@ -102,7 +125,15 @@ class TestEndToEndWorkflows:
             pytest.skip(f"Method not implemented: {e}")
     
     def test_device_discovery_to_nib(self, integration_setup):
-        """Test device discovery and NIB population"""
+        """
+        Test device discovery and NIB population.
+        
+        Verifies:
+            1. Device can be created with all required fields
+            2. NIBStore.upsert_device() succeeds
+            3. Device can be retrieved by device_id
+            4. Retrieved device has correct IP and vendor
+        """
         lc = integration_setup['lc']
         nib = integration_setup['nib']
         
@@ -137,7 +168,16 @@ class TestEndToEndWorkflows:
         assert retrieved.vendor == "cisco"
     
     def test_config_approval_workflow(self, integration_setup):
-        """Test complete config approval workflow"""
+        """
+        Test complete config approval workflow.
+        
+        Verifies:
+            1. Device can be added to NIB as prerequisite
+            2. ConfigurationRecord can be created
+            3. ApprovalWorkflowEngine creates and tracks requests
+            4. MEDIUM sensitivity configs enter PENDING_APPROVAL state
+               (requires Regional Controller approval)
+        """
         nib = integration_setup['nib']
         
         # Add device to NIB
@@ -194,7 +234,16 @@ class TestEndToEndWorkflows:
         assert request.state == ApprovalState.PENDING_APPROVAL
     
     def test_adapter_integration(self, integration_setup):
-        """Test vendor adapter integration"""
+        """
+        Test vendor adapter integration.
+        
+        Verifies:
+            1. VendorAdapterFactory creates correct adapter for vendor
+            2. Cisco adapter is returned for 'cisco' vendor
+            3. ConfigIntent can be created with VLAN parameters
+            4. translate_intent() generates correct CLI commands
+               ('vlan 100', 'name TestVLAN')
+        """
         # Create mock device info
         device = {
             'vendor': 'cisco',
@@ -226,7 +275,16 @@ class TestEndToEndWorkflows:
         assert 'name TestVLAN' in commands
     
     def test_message_flow(self, integration_setup):
-        """Test message flow between controllers"""
+        """
+        Test message flow between controllers.
+        
+        Verifies:
+            1. Controllers can register handlers with MessageBus
+            2. Messages can be sent using MessageBus.send()
+            3. No exceptions during message routing
+        
+        Note: ValueErrors for missing handlers are expected and caught.
+        """
         gc = integration_setup['gc']
         message_bus = integration_setup['message_bus']
         
@@ -267,7 +325,17 @@ class TestDatabaseIntegration:
     """Test database operations under load"""
     
     def test_concurrent_device_updates(self, integration_setup):
-        """Test concurrent device updates with optimistic locking"""
+        """
+        Test concurrent device updates with optimistic locking.
+        
+        Verifies:
+            1. Device can be created and upserted successfully
+            2. Two concurrent reads get same version
+            3. First update succeeds
+            4. Second update with stale version returns conflict=True
+        
+        This ensures data integrity under concurrent modifications.
+        """
         nib = integration_setup['nib']
         
         from pdsno.datastore.models import Device, DeviceStatus
@@ -309,7 +377,16 @@ class TestDatabaseIntegration:
         assert result2.conflict is True
     
     def test_transaction_integrity(self, integration_setup):
-        """Test database transaction integrity"""
+        """
+        Test database transaction integrity.
+        
+        Verifies:
+            1. SQLite connection can be established
+            2. Foreign keys can be enabled via PRAGMA
+            3. PRAGMA foreign_keys returns 1 (enabled)
+        
+        Ensures referential integrity is available for production use.
+        """
         nib = integration_setup['nib']
         
         # FIX 5: Enable foreign keys in NIBStore, not here
@@ -333,7 +410,16 @@ class TestSecurityIntegration:
     """Test security components integration"""
     
     def test_authentication_flow(self):
-        """Test complete authentication flow"""
+        """
+        Test complete authentication flow.
+        
+        Verifies:
+            1. ControllerAuthenticator can be instantiated with secret
+            2. verify_bootstrap_token() processes requests correctly
+            3. Invalid tokens return appropriate error messages
+        
+        Note: Token failure is expected - tests the flow, not valid tokens.
+        """
         from pdsno.security.auth import ControllerAuthenticator
         
         authenticator = ControllerAuthenticator(bootstrap_secret=b'x' * 32)
@@ -350,7 +436,16 @@ class TestSecurityIntegration:
         assert error is not None
     
     def test_rbac_enforcement(self):
-        """Test RBAC permission checks"""
+        """
+        Test RBAC permission checks.
+        
+        Verifies:
+            1. RBACManager can assign roles to entities
+            2. LOCAL_OPERATOR role grants DEVICE:READ permission
+            3. check_permission() correctly evaluates access
+        
+        Uses Resource and Action enums for type-safe permission checks.
+        """
         from pdsno.security.rbac import RBACManager, Role, Resource, Action
         
         rbac = RBACManager()
@@ -369,7 +464,16 @@ class TestSecurityIntegration:
         assert can_read_device is True
     
     def test_secret_encryption(self):
-        """Test secret manager encryption"""
+        """
+        Test secret manager encryption.
+        
+        Verifies:
+            1. SecretManager can store sensitive data
+            2. Secrets are stored with correct type classification
+            3. retrieve_secret() returns exact original bytes
+        
+        Ensures secrets are properly encrypted at rest and decrypted on retrieval.
+        """
         from pdsno.security.secret_manager import SecretManager, SecretType
         
         mgr = SecretManager()
@@ -392,7 +496,16 @@ class TestPerformanceIntegration:
     """Test system performance under realistic conditions"""
     
     def test_message_throughput(self, integration_setup):
-        """Test message processing throughput"""
+        """
+        Test message processing throughput.
+        
+        Verifies:
+            1. MessageBus can handle high message volume
+            2. 1000 messages processed in reasonable time
+            3. Throughput exceeds 100 messages/second baseline
+        
+        Performance benchmark for message bus capacity planning.
+        """
         message_bus = integration_setup['message_bus']
         
         # Register a test handler
@@ -431,7 +544,16 @@ class TestPerformanceIntegration:
         assert throughput > 100
     
     def test_database_query_performance(self, integration_setup):
-        """Test database query performance"""
+        """
+        Test database query performance.
+        
+        Verifies:
+            1. NIBStore can insert 100 devices efficiently
+            2. Full table query completes in <100ms
+            3. All 100 devices are retrievable
+        
+        Performance benchmark for database sizing and index planning.
+        """
         nib = integration_setup['nib']
         
         # Add 100 devices

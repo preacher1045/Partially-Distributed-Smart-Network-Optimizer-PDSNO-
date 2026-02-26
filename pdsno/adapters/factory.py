@@ -10,7 +10,6 @@ from .cisco_ios_adapter import CiscoIOSAdapter
 from .juniper_adapter import JuniperAdapter
 from .arista_adapter import AristaAdapter
 from .netconf_adapter import NETCONFAdapter
-import logging
 
 
 class VendorAdapterFactory:

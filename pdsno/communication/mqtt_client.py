@@ -10,7 +10,7 @@ Adds publish-subscribe capability to controllers for:
 import paho.mqtt.client as mqtt
 import json
 import logging
-from typing import Callable, Dict, Optional, List
+from typing import Callable, Dict, Optional
 from datetime import datetime, timezone
 import threading
 import time

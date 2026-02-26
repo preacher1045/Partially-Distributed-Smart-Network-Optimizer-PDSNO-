@@ -7,7 +7,6 @@ Works with any device that supports NETCONF/YANG.
 from typing import Dict, List
 from ncclient import manager
 from ncclient.transport.errors import AuthenticationError, SSHError
-import xml.etree.ElementTree as ET
 from .base_adapter import VendorAdapter, ConfigIntent, IntentType
 
 

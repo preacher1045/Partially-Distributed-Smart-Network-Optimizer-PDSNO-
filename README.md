@@ -180,6 +180,64 @@ See [QUICK_START.md](QUICK_START.md) for detailed instructions and usage example
 
 ---
 
+## 🧪 Testing
+
+### Unit & Integration Tests
+
+Run the complete test suite:
+```bash
+python -m pytest
+```
+
+Run with verbose output:
+```bash
+python -m pytest -v --tb=short
+```
+
+Run specific test files:
+```bash
+python -m pytest tests/test_end_to_end.py -v
+python -m pytest tests/test_controllers.py -v
+```
+
+### Testing with Real Devices
+
+The test suite includes integration tests against real network devices (`tests/integration/test_adapters_real.py`), which are skipped by default as they require actual hardware.
+
+To run integration tests against real network devices:
+
+1. **Set up test devices** (Cisco IOS, Juniper, Arista)
+
+2. **Configure credentials in environment:**
+   ```bash
+   # Enable real device testing
+   export PDSNO_TEST_REAL_DEVICES=1
+   
+   # Cisco device
+   export CISCO_TEST_IP=192.168.1.10
+   export CISCO_TEST_USER=admin
+   export CISCO_TEST_PASS=password
+   
+   # Juniper device
+   export JUNIPER_TEST_IP=192.168.1.20
+   export JUNIPER_TEST_USER=admin
+   export JUNIPER_TEST_PASS=password
+   
+   # Arista device
+   export ARISTA_TEST_IP=192.168.1.30
+   export ARISTA_TEST_USER=admin
+   export ARISTA_TEST_PASS=password
+   ```
+
+3. **Run real device tests:**
+   ```bash
+   pytest tests/integration/test_adapters_real.py -v
+   ```
+
+> ⚠️ **Warning:** Real device tests may modify device configuration. Use isolated test devices only.
+
+---
+
 ## 📚 Documentation
 
 | Document | Description |

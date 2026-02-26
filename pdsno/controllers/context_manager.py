@@ -6,9 +6,8 @@ Implements atomic writes to prevent data corruption.
 """
 
 import yaml
-import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from filelock import FileLock
 import tempfile
 import shutil
@@ -135,4 +134,3 @@ class ContextManager:
 # Legacy alias (for backwards compatibility if needed)
 class ContextBuilder(ContextManager):
     """Deprecated: Use ContextManager instead"""
-    pass

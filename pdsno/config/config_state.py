@@ -19,7 +19,6 @@ from typing import Dict, List, Optional
 from datetime import datetime, timezone
 import logging
 
-from pdsno.config.approval_engine import ApprovalState
 
 
 class ConfigState(Enum):

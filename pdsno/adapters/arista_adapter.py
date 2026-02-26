@@ -10,7 +10,6 @@ import requests
 from requests.auth import HTTPBasicAuth
 import json
 from .base_adapter import VendorAdapter, ConfigIntent, IntentType
-import logging
 
 
 class AristaAdapter(VendorAdapter):

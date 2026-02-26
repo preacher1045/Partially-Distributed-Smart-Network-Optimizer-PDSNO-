@@ -5,7 +5,7 @@ Defines the contract that all vendor adapters must implement.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from dataclasses import dataclass
 from enum import Enum
 import logging
@@ -71,12 +71,10 @@ class VendorAdapter(ABC):
         Returns:
             True if connected successfully
         """
-        pass
     
     @abstractmethod
     def disconnect(self):
         """Close connection to device"""
-        pass
     
     @abstractmethod
     def translate_intent(self, intent: ConfigIntent) -> List[str]:
@@ -89,7 +87,6 @@ class VendorAdapter(ABC):
         Returns:
             List of vendor-specific CLI commands
         """
-        pass
     
     @abstractmethod
     def apply_config(self, commands: List[str]) -> Dict:
@@ -102,7 +99,6 @@ class VendorAdapter(ABC):
         Returns:
             Result dictionary with success/failure and output
         """
-        pass
     
     @abstractmethod
     def get_running_config(self) -> str:
@@ -112,7 +108,6 @@ class VendorAdapter(ABC):
         Returns:
             Running configuration as string
         """
-        pass
     
     @abstractmethod
     def verify_config(self, intent: ConfigIntent) -> bool:
@@ -125,7 +120,6 @@ class VendorAdapter(ABC):
         Returns:
             True if configuration matches intent
         """
-        pass
     
     def is_connected(self) -> bool:
         """Check if currently connected to device"""

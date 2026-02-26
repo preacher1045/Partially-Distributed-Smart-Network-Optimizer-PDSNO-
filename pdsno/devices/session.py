@@ -6,7 +6,7 @@ Represents a persistent connection to a network device.
 
 from enum import Enum
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 import logging
 
 

@@ -5,13 +5,12 @@ Extends BaseController with device discovery capabilities.
 Orchestrates ARP, ICMP, and SNMP scans, merges results, and reports to RC.
 """
 
-import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from pdsno.controllers.base_controller import BaseController
 from pdsno.discovery import ARPScanner, ICMPScanner, SNMPScanner
-from pdsno.datastore import NIBStore, Device, DeviceStatus, NIBResult
+from pdsno.datastore import NIBStore, Device, DeviceStatus
 from pdsno.controllers.context_manager import ContextManager
 from pdsno.communication.message_format import MessageEnvelope, MessageType
 from pdsno.communication.mqtt_client import ControllerMQTTClient

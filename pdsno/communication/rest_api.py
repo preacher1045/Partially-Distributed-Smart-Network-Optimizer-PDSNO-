@@ -7,8 +7,6 @@ Implements the synchronous request-response patterns from communication_model.md
 
 import requests
 from typing import Dict, Any, Optional
-from datetime import datetime, timezone
-import json
 
 from .message_format import MessageEnvelope, MessageType
 
@@ -85,4 +83,3 @@ class RESTServer:
     Full implementation requires FastAPI and will be added
     in later phases when controllers need to expose REST endpoints.
     """
-    pass

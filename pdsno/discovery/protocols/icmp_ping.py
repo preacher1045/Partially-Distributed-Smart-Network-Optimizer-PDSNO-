@@ -6,7 +6,6 @@ Measures round-trip time (RTT).
 """
 
 import asyncio
-import subprocess
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 

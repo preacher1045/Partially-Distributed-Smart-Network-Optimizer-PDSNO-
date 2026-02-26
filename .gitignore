@@ -29,6 +29,7 @@ sim_phase6c/
 
 workspace.txt
 end_to_end_pyTest.txt
+test_results.txt
 
 #test encryptions
 secrets/

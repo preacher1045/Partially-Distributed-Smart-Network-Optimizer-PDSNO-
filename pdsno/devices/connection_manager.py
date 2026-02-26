@@ -4,13 +4,12 @@ Connection Manager
 Manages persistent connections to network devices with pooling and health checks.
 """
 
-from typing import Dict, Optional
+from typing import Dict
 from datetime import datetime, timezone, timedelta
 import logging
-from enum import Enum
 
 from pdsno.adapters import VendorAdapterFactory
-from .session import DeviceSession, SessionState
+from .session import DeviceSession
 
 
 class ConnectionManager:

@@ -14,7 +14,7 @@ Permission Model:
 """
 
 from enum import Enum
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 from dataclasses import dataclass
 import logging
 

@@ -12,8 +12,7 @@ Security Features:
 """
 
 import secrets
-import hashlib
-from typing import Tuple, Optional
+from typing import Optional
 from datetime import datetime, timezone, timedelta
 import logging
 

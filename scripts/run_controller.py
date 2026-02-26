@@ -30,6 +30,8 @@ import logging
 import sys
 from pathlib import Path
 import signal
+import yaml
+import os
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -44,13 +46,23 @@ from pdsno.communication.message_bus import MessageBus
 
 def setup_logging(level=logging.INFO):
     """Configure logging"""
+    handlers = [logging.StreamHandler()]
+    
+    # Try to add file handler, fall back to console only
+    log_file = os.getenv('PDSNO_LOG_FILE', '/var/log/pdsno/controller.log')
+    
+    try:
+        # Ensure directory exists
+        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.FileHandler(log_file))
+    except (PermissionError, OSError) as e:
+        print(f"Warning: Cannot write to log file {log_file}: {e}")
+        print("Logging to console only")
+    
     logging.basicConfig(
         level=level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler('/var/log/pdsno/controller.log')
-        ]
+        handlers=handlers
     )
 
 
@@ -200,7 +212,16 @@ def create_controller(args):
     # Initialize infrastructure
     logger.info("Initializing PDSNO infrastructure...")
     
-    context_mgr = ContextManager(args.config)
+    try:
+        context_mgr = ContextManager(args.config)
+    except FileNotFoundError:
+        print(f"Error: Configuration file not found: {args.config}")
+        print("Create it with: cp config/context_runtime.yaml.template {args.config}")
+        sys.exit(1)
+    except yaml.YAMLError as e:
+        print(f"Error: Invalid YAML in configuration file: {e}")
+        sys.exit(1)
+        
     nib_store = NIBStore(args.db)
     message_bus = MessageBus()
     

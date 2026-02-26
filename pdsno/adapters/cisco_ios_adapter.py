@@ -7,7 +7,6 @@ Supports Cisco IOS, IOS-XE, and NX-OS devices.
 from typing import Dict, List
 from netmiko import ConnectHandler
 from .base_adapter import VendorAdapter, ConfigIntent, IntentType
-import logging
 
 
 class CiscoIOSAdapter(VendorAdapter):

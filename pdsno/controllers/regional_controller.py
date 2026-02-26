@@ -8,14 +8,11 @@ and approves MEDIUM/LOW config changes.
 import hmac
 import hashlib
 from typing import Optional, Callable
-import uuid
-from datetime import datetime, timezone
 
 from pdsno.controllers.base_controller import BaseController
 from pdsno.communication.message_format import MessageEnvelope, MessageType
 from pdsno.datastore import NIBStore
 from pdsno.controllers.context_manager import ContextManager
-from pdsno.logging.logger import get_logger
 from pdsno.communication.rest_server import ControllerRESTServer
 from pdsno.communication.http_client import ControllerHTTPClient
 from pdsno.communication.mqtt_client import ControllerMQTTClient
@@ -30,11 +27,16 @@ class RegionalController(BaseController):
     - Validate Local Controllers (delegated)
     - Approve MEDIUM/LOW config changes
     - Aggregate discovery reports from LCs
+    
+    Note on controller_id:
+        Before validation, controller_id contains the temporary ID (temp_id).
+        After validation succeeds, controller_id is updated to the assigned_id
+        granted by the Global Controller.
     """
     
     def __init__(
         self,
-        temp_id: str,  # Before validation: temporary ID
+        temp_id: str,  # Before validation: temporary ID (stored as controller_id)
         region: str,
         context_manager: ContextManager,
         nib_store: NIBStore,
@@ -46,7 +48,7 @@ class RegionalController(BaseController):
         mqtt_port: int = 1883,
         key_manager=None  # Key distribution
     ):
-        # Start with temp_id, will be updated after validation
+        # controller_id starts as temp_id, will be updated after validation
         super().__init__(
             controller_id=temp_id,
             role="regional",
@@ -55,7 +57,8 @@ class RegionalController(BaseController):
             nib_store=nib_store
         )
         
-        self.temp_id = temp_id
+        # Store initial temp_id for validation payload (needed for protocol)
+        self._initial_temp_id = temp_id
         self.region = region
         self.message_bus = message_bus
         self.http_client = http_client  # HTTP client for GC communication
@@ -71,7 +74,7 @@ class RegionalController(BaseController):
         self.rest_server = None
         if enable_rest:
             self.rest_server = ControllerRESTServer(
-                controller_id=self.temp_id,
+                controller_id=self.controller_id,
                 port=rest_port,
                 title="PDSNO Regional Controller API"
             )
@@ -88,7 +91,7 @@ class RegionalController(BaseController):
         self.mqtt_client = None
         if mqtt_broker:
             self.mqtt_client = ControllerMQTTClient(
-                controller_id=self.temp_id,
+                controller_id=self.controller_id,
                 broker_host=mqtt_broker,
                 broker_port=mqtt_port
             )
@@ -100,10 +103,20 @@ class RegionalController(BaseController):
         self.authenticator = None
         if key_manager:
             from pdsno.security.key_distribution import KeyDistributionProtocol
-            self.key_protocol = KeyDistributionProtocol(self.temp_id, key_manager)
+            self.key_protocol = KeyDistributionProtocol(self.controller_id, key_manager)
             self.logger.info("Key distribution protocol initialized")
         
-        self.logger.info(f"Regional Controller {temp_id} initialized for region {region}")
+        self.logger.info(f"Regional Controller {self.controller_id} initialized for region {region}")
+    
+    @property
+    def temp_id(self) -> str:
+        """
+        Backwards-compatible alias for controller_id.
+        
+        Deprecated: Use controller_id instead. Before validation, controller_id
+        contains the temporary ID. After validation, it contains the assigned ID.
+        """
+        return self.controller_id
     
     def perform_key_exchange(
         self,
@@ -141,7 +154,7 @@ class RegionalController(BaseController):
             self.http_client.register_controller(global_controller_id, global_controller_url)
             
             response = self.http_client.send(
-                sender_id=self.temp_id,
+                sender_id=self.controller_id,
                 recipient_id=global_controller_id,
                 message_type=MessageType.KEY_EXCHANGE_INIT,
                 payload=init_payload,
@@ -162,7 +175,7 @@ class RegionalController(BaseController):
             
             # Step 4: Create authenticator with new shared secret
             key_id = self.key_protocol.key_manager.derive_key_id(
-                self.temp_id,
+                self.controller_id,
                 global_controller_id
             )
             shared_secret = self.key_protocol.key_manager.get_key(key_id)
@@ -170,7 +183,7 @@ class RegionalController(BaseController):
             from pdsno.security.message_auth import MessageAuthenticator
             self.authenticator = MessageAuthenticator(
                 shared_secret,
-                self.temp_id
+                self.controller_id
             )
             
             # Update HTTP client authenticator for future signed messages
@@ -204,7 +217,7 @@ class RegionalController(BaseController):
         
         # Create validation request payload
         payload = {
-            "temp_id": self.temp_id,
+            "temp_id": self._initial_temp_id,  # Protocol requires original temp_id
             "controller_type": "regional",
             "region": self.region,
             "public_key": public_key,
@@ -225,7 +238,7 @@ class RegionalController(BaseController):
             
             # Send via HTTP
             response = self.http_client.send(
-                sender_id=self.temp_id,
+                sender_id=self.controller_id,
                 recipient_id=global_controller_id,
                 message_type=MessageType.VALIDATION_REQUEST,
                 payload=payload
@@ -233,7 +246,7 @@ class RegionalController(BaseController):
         else:
             # Use message bus (backwards compatible)
             response = self.message_bus.send(
-                sender_id=self.temp_id,
+                sender_id=self.controller_id,
                 recipient_id=global_controller_id,
                 message_type=MessageType.VALIDATION_REQUEST,
                 payload=payload
@@ -267,7 +280,7 @@ class RegionalController(BaseController):
         # Send challenge response
         response_payload = {
             "challenge_id": challenge_id,
-            "temp_id": self.temp_id,
+            "temp_id": self._initial_temp_id,  # Protocol requires original temp_id
             "signed_nonce": signed_nonce
         }
         
@@ -276,7 +289,7 @@ class RegionalController(BaseController):
         # Send via HTTP or message bus
         if self.http_client:
             result = self.http_client.send(
-                sender_id=self.temp_id,
+                sender_id=self.controller_id,
                 recipient_id=global_controller_id,
                 message_type=MessageType.CHALLENGE_RESPONSE,
                 payload=response_payload,
@@ -284,7 +297,7 @@ class RegionalController(BaseController):
             )
         else:
             result = self.message_bus.send(
-                sender_id=self.temp_id,
+                sender_id=self.controller_id,
                 recipient_id=global_controller_id,
                 message_type=MessageType.CHALLENGE_RESPONSE,
                 payload=response_payload,
@@ -339,7 +352,7 @@ class RegionalController(BaseController):
         For PoC, we generate it using the same secret the GC uses.
         """
         BOOTSTRAP_SECRET = b"pdsno-bootstrap-secret-change-in-production"
-        token_input = f"{self.temp_id}|{self.region}|regional".encode()
+        token_input = f"{self._initial_temp_id}|{self.region}|regional".encode()
         return hmac.new(BOOTSTRAP_SECRET, token_input, hashlib.sha256).hexdigest()
     
     # Message handlers (to be registered with message bus)
