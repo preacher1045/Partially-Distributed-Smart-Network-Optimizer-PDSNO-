@@ -1,0 +1,82 @@
+{#
+    base_config.j2 — Base device configuration template
+
+User templates extend this with:
+    {% extends "base_config.j2" %}
+    {% block vlan_config %}
+        ... your custom VLAN logic ...
+    {% endblock %}
+
+Overrideable blocks:
+    file_header       — the comment banner at the top of the config
+    ntp_config        — NTP server statements
+    logging_config    — syslog/logging statements
+    snmp_config       — SNMP community and location
+    vlan_config       — VLAN definitions (empty by default)
+    interface_config  — Interface assignments (empty by default)
+    routing_config    — Routing protocol statements (empty by default)
+    custom_config     — Free-form block for anything not covered above
+#}
+
+{% block file_header %}
+{% if ansible_network_os == 'ios' %}
+! ============================================================
+! Managed by PDSNO — do not edit manually
+! Device:   {{ inventory_hostname }}
+! Region:   {{ region | default('unset') }}
+! Rendered: {{ ansible_date_time.iso8601 }}
+! ============================================================
+{% elif ansible_network_os == 'junos' %}
+# ============================================================
+# Managed by PDSNO — do not edit manually
+# Device:   {{ inventory_hostname }}
+# Region:   {{ region | default('unset') }}
+# Rendered: {{ ansible_date_time.iso8601 }}
+# ============================================================
+{% endif %}
+{% endblock %}
+
+{% block ntp_config %}
+{% if ntp_servers is defined and ntp_servers %}
+{% if ansible_network_os == 'ios' %}
+{% for server in ntp_servers %}
+ntp server {{ server }}
+{% endfor %}
+{% elif ansible_network_os == 'junos' %}
+{% for server in ntp_servers %}
+set system ntp server {{ server }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block logging_config %}
+{% if syslog_server is defined %}
+{% if ansible_network_os == 'ios' %}
+logging host {{ syslog_server }}
+logging trap informational
+{% elif ansible_network_os == 'junos' %}
+set system syslog host {{ syslog_server }} any info
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block snmp_config %}
+{% if ansible_network_os == 'ios' %}
+snmp-server community {{ snmp_community | default('public') }} RO
+snmp-server location {{ snmp_location | default(region | default('unknown')) }}
+snmp-server contact {{ snmp_contact | default('network-admin@example.com') }}
+{% elif ansible_network_os == 'junos' %}
+set snmp community {{ snmp_community | default('public') }} authorization read-only
+set snmp location "{{ snmp_location | default(region | default('unknown')) }}"
+set snmp contact "{{ snmp_contact | default('network-admin@example.com') }}"
+{% endif %}
+{% endblock %}
+
+{% block vlan_config %}{% endblock %}
+
+{% block interface_config %}{% endblock %}
+
+{% block routing_config %}{% endblock %}
+
+{% block custom_config %}{% endblock %}
