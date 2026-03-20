@@ -1,20 +1,18 @@
 {% extends "base_config.j2" %}
-
 {% block vlan_config %}
-{# Override just the VLAN section — everything else comes from the base #}
-{% if ansible_network_os == 'ios' %}
-vlan {{ vlan_id | default(100) }}
-    name {{ vlan_name | default("CustomVLAN") }}
-{% endif %}
-{% endblock %}
-
+    {# Override just the VLAN section — everything else comes from the base #}
+    {% if ansible_network_os == 'ios' %}
+        vlan {{ vlan_id | default(100) }}
+        name {{ vlan_name | default("CustomVLAN") }}
+    {% endif %}
+{% endblock vlan_config %}
 {% block interface_config %}
-{% for iface in interfaces | default([]) %}
-{% if ansible_network_os == 'ios' %}
-interface {{ iface.name }}
-    switchport mode access
-    switchport access vlan {{ vlan_id | default(100) }}
-    no shutdown
-{% endif %}
-{% endfor %}
-{% endblock %}
+    {% for iface in interfaces | default([]) %}
+        {% if ansible_network_os == 'ios' %}
+            interface {{ iface.name }}
+            switchport mode access
+            switchport access vlan {{ vlan_id | default(100) }}
+            no shutdown
+        {% endif %}
+    {% endfor %}
+{% endblock interface_config %}
