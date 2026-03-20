@@ -1,0 +1,296 @@
+{#
+    ============================================================================
+    policy.j2 — PDSNO Core Policy Base Template
+    ============================================================================
+
+    PURPOSE
+    -------
+    This is the base template for policy-related configuration in PDSNO.
+    It defines the block structure that user templates can selectively override.
+
+    It covers four policy domains:
+        1. security_policy  — ACLs, firewall rules, port security
+        2. network_policy   — VLANs, interface assignments, static routes
+        3. qos_policy       — Traffic classification, DSCP marking, queuing
+        4. custom_policy    — Anything not covered by the blocks above
+
+    RELATIONSHIP TO OTHER TEMPLATES
+    --------------------------------
+    base_config.j2   — Infrastructure config: NTP, SNMP, syslog, banners.
+                        Extend that when you are configuring device infrastructure.
+
+    policy.j2        — THIS FILE. Policy config: ACLs, VLANs, QoS, routing.
+                        Extend this when you are pushing a network or security policy.
+
+    policy_template.j2 (roles/policy_deployment/templates/) — Ansible role-level
+                        template used directly by the policy_deployment role.
+                        That file is for Ansible task execution. This file is for
+                        the TemplateEngine Python rendering system. They are
+                        separate by design — do not conflate them.
+
+    HOW TO EXTEND THIS TEMPLATE
+    ----------------------------
+    In your user template (user_{username}_{name}.j2):
+
+        {% extends "policy.j2" %}
+
+        {% block network_policy %}
+            {# Your VLAN and interface configuration here #}
+            {# All other blocks render as empty — no output unless overridden #}
+        {% endblock %}
+
+    You only need to override the blocks relevant to your policy.
+    Blocks you do not override produce no output.
+
+    VARIABLES
+    ---------
+    Required (must be passed to TemplateEngine.render()):
+        ansible_network_os    → "ios" | "junos" | "eos"
+        inventory_hostname    → device hostname from NIB
+
+    Recommended (used by the header and metadata blocks):
+        policy_name           → human-readable policy name (str)
+        policy_version        → version string, e.g. "1.2.0" (str)
+        policy_owner          → operator account ID who owns this policy (str)
+        region                → controller region slug, e.g. "zone-A" (str)
+        ansible_date_time     → Ansible datetime fact (dict with .iso8601)
+
+    Policy-domain variables (pass only what your policy needs):
+
+        Network policy:
+        vlans               → list of {id, name, description}
+        interfaces          → list of {name, type, vlan, description, trunk_vlans}
+        static_routes       → list of {network, mask, next_hop, description}
+
+        Security policy:
+        acl_rules           → list of {name, sequence, action, protocol,
+                                        source, source_wildcard,
+                                        dest, dest_wildcard, port}
+        port_security       → {max_mac, violation_action, sticky}
+
+        QoS policy:
+        qos_classes         → list of {name, dscp, bandwidth_percent, priority}
+        qos_policy_name     → name for the service policy (str)
+
+    STRICTNESS NOTE
+    ---------------
+    The TemplateEngine uses StrictUndefined. Any variable referenced in a block
+    you override must either be passed explicitly or use the | default() filter.
+    A missing variable is a render error, not a silent empty string.
+    This is intentional — silent misconfiguration on network devices is dangerous.
+
+    ============================================================================
+#}
+
+{# ── Resolve policy metadata with safe defaults ──────────────────────────── #}
+{% set _policy_name    = policy_name    | default("unnamed-policy")  %}
+{% set _policy_version = policy_version | default("0.0.0")           %}
+{% set _policy_owner   = policy_owner   | default("unset")           %}
+{% set _region         = region         | default("unset")           %}
+{% set _timestamp      = ansible_date_time.iso8601
+    if ansible_date_time is defined
+    else "timestamp-unavailable"                %}
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+    BLOCK: file_header
+    A banner comment at the top of the rendered config identifying the policy,
+    version, owner, and when it was applied. Override to customise the format.
+════════════════════════════════════════════════════════════════════════════ #}
+{% block file_header %}
+{% if ansible_network_os == 'ios' %}
+! ============================================================
+! Policy:   {{ _policy_name }}
+! Version:  {{ _policy_version }}
+! Owner:    {{ _policy_owner }}
+! Device:   {{ inventory_hostname }}
+! Region:   {{ _region }}
+! Applied:  {{ _timestamp }}
+! Managed by PDSNO — changes outside this system will be overwritten
+! ============================================================
+{% elif ansible_network_os == 'junos' %}
+# ============================================================
+# Policy:   {{ _policy_name }}
+# Version:  {{ _policy_version }}
+# Owner:    {{ _policy_owner }}
+# Device:   {{ inventory_hostname }}
+# Region:   {{ _region }}
+# Applied:  {{ _timestamp }}
+# Managed by PDSNO — changes outside this system will be overwritten
+# ============================================================
+{% elif ansible_network_os == 'eos' %}
+! ============================================================
+! Policy:   {{ _policy_name }}
+! Version:  {{ _policy_version }}
+! Owner:    {{ _policy_owner }}
+! Device:   {{ inventory_hostname }}
+! Region:   {{ _region }}
+! Applied:  {{ _timestamp }}
+! Managed by PDSNO — changes outside this system will be overwritten
+! ============================================================
+{% endif %}
+{% endblock %}
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+    BLOCK: policy_metadata
+    Machine-readable metadata embedded as comments for audit log parsing.
+    The PDSNO audit trail extracts these fields to correlate rendered configs
+    with NIB policy records. Do not remove or rename the key: value format.
+    Override only if you need to add fields — do not remove existing ones.
+════════════════════════════════════════════════════════════════════════════ #}
+{% block policy_metadata %}
+{% if ansible_network_os in ['ios', 'eos'] %}
+    ! pdsno:policy_name={{ _policy_name }}
+    ! pdsno:policy_version={{ _policy_version }}
+    ! pdsno:policy_owner={{ _policy_owner }}
+    ! pdsno:region={{ _region }}
+    ! pdsno:applied={{ _timestamp }}
+{% elif ansible_network_os == 'junos' %}
+    # pdsno:policy_name={{ _policy_name }}
+    # pdsno:policy_version={{ _policy_version }}
+    # pdsno:policy_owner={{ _policy_owner }}
+    # pdsno:region={{ _region }}
+    # pdsno:applied={{ _timestamp }}
+{% endif %}
+{% endblock %}
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+    BLOCK: security_policy
+    ACL definitions and port security configuration.
+
+    Default: empty — no security config is rendered unless you override this.
+
+    Example override in your user template:
+
+        {% block security_policy %}
+        {% if ansible_network_os == 'ios' %}
+        {% for rule in acl_rules | default([]) %}
+        ip access-list extended {{ rule.name }}
+        {{ rule.sequence | default(10) }} {{ rule.action }} {{ rule.protocol }}
+        {{ rule.source }} {{ rule.source_wildcard | default('') }}
+        {{ rule.dest }} {{ rule.dest_wildcard | default('') }}
+        {% if rule.port is defined %} eq {{ rule.port }}{% endif %}
+        {% endfor %}
+        {% endif %}
+        {% endblock %}
+
+    acl_rules list item schema:
+        {
+        name:             "BLOCK_UNTRUSTED",
+        sequence:         10,
+        action:           "permit" | "deny",
+        protocol:         "ip" | "tcp" | "udp" | "icmp",
+        source:           "10.0.0.0" | "any" | "host 10.0.0.1",
+        source_wildcard:  "0.0.0.255",     # omit for 'any' or 'host'
+        dest:             "192.168.1.0" | "any" | "host 192.168.1.1",
+        dest_wildcard:    "0.0.0.255",
+        port:             80               # optional, for tcp/udp
+        }
+
+    port_security schema:
+        {
+        max_mac:          2,
+        violation_action: "shutdown" | "restrict" | "protect",
+        sticky:           true | false
+        }
+    ════════════════════════════════════════════════════════════════════════════ #}
+{% block security_policy %}{% endblock %}
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+    BLOCK: network_policy
+    VLAN definitions, interface assignments, and static routing.
+
+    Default: empty — no network config is rendered unless you override this.
+
+    Example override in your user template:
+
+        {% block network_policy %}
+        {% if ansible_network_os == 'ios' %}
+        {% for vlan in vlans | default([]) %}
+        vlan {{ vlan.id }}
+        name {{ vlan.name }}
+        {% endfor %}
+        {% for iface in interfaces | default([]) %}
+        interface {{ iface.name }}
+        description {{ iface.description | default(iface.name) }}
+        {% if iface.type | default('access') == 'access' %}
+        switchport mode access
+        switchport access vlan {{ iface.vlan }}
+        {% elif iface.type == 'trunk' %}
+        switchport mode trunk
+        switchport trunk allowed vlan {{ iface.trunk_vlans | join(',') }}
+        {% endif %}
+        no shutdown
+        {% endfor %}
+        {% endif %}
+        {% endblock %}
+
+    vlans list item schema:
+        { id: 100, name: "Engineering", description: "Engineering VLAN" }
+
+    interfaces list item schema:
+        {
+        name:         "GigabitEthernet0/1",
+        type:         "access" | "trunk",
+        vlan:         100,              # for access ports
+        trunk_vlans:  [100, 200, 300],  # for trunk ports
+        description:  "Uplink to core"
+        }
+
+    static_routes list item schema:
+        {
+        network:     "10.10.0.0",
+        mask:        "255.255.0.0",
+        next_hop:    "192.168.1.1",
+        description: "Route to branch office"   # IOS only
+        }
+    ════════════════════════════════════════════════════════════════════════════ #}
+{% block network_policy %}{% endblock %}
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+    BLOCK: qos_policy
+    Traffic classification, DSCP marking, and queuing policy.
+
+    Default: empty — no QoS config is rendered unless you override this.
+
+    Example override in your user template:
+
+        {% block qos_policy %}
+        {% if ansible_network_os == 'ios' %}
+        {% for cls in qos_classes | default([]) %}
+            class-map match-any {{ cls.name }}
+            match dscp {{ cls.dscp }}
+        {% endfor %}
+            policy-map {{ qos_policy_name | default('PDSNO-QOS') }}
+        {% for cls in qos_classes | default([]) %}
+            class {{ cls.name }}
+            bandwidth percent {{ cls.bandwidth_percent }}
+        {% if cls.priority | default(false) %}priority{% endif %}
+        {% endfor %}
+        {% endif %}
+        {% endblock %}
+
+    qos_classes list item schema:
+        {
+        name:               "VOICE",
+        dscp:               "ef",        # ef, af41, af31, cs3, default
+        bandwidth_percent:  20,
+        priority:           true         # LLQ — only one class can be priority
+        }
+    ════════════════════════════════════════════════════════════════════════════ #}
+{% block qos_policy %}{% endblock %}
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+    BLOCK: custom_policy
+    Free-form block for configuration that does not fit the categories above.
+    Override this for vendor-specific features, experimental policies, or
+    anything else not covered by the structured blocks.
+
+    This block renders last — after security, network, and QoS blocks.
+    ════════════════════════════════════════════════════════════════════════════ #}
+{% block custom_policy %}{% endblock %}

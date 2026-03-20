@@ -1,0 +1,228 @@
+# ==============================================================================
+# PDSNO Custom Playbook — User Scaffold
+# ==============================================================================
+#
+# HOW TO USE THIS FILE
+# --------------------
+# 1. Copy this file and rename it following the convention:
+#      user_{your_username}_{descriptive_name}.yaml
+#    Examples:
+#      user_alex_vlan_provisioning.yaml
+#      user_sarah_acl_edge_policy.yaml
+#
+# 2. Replace the placeholder values (marked with <angle_brackets>) with
+#    your actual configuration.
+#
+# 3. Reference your custom template from:
+#      pdsno/automation/custom/templates/user_{username}_{template_name}.j2
+#
+# 4. Submit for approval through the PDSNO config approval flow before
+#    running against production devices. Sensitivity classification:
+#      - VLAN changes, ACL updates       → MEDIUM (Regional Controller approval)
+#      - Routing changes, core devices   → HIGH   (Global Controller approval)
+#      - Description, logging changes    → LOW    (auto-approved)
+#
+# NAMING RULES
+# ------------
+# - Username must match your PDSNO operator account ID (lowercase, no spaces)
+# - Playbook name must be descriptive and lowercase with underscores
+# - Do not use the literal strings {username} or {playbook_name} — replace them
+#
+# VALIDATION RULES (PlaybookValidator enforces these on submission)
+# ----------------------------------------------------------------
+# ALLOWED modules:
+#   ios_config, ios_command, ios_facts
+#   junos_config, junos_command, junos_facts
+#   eos_config, eos_command, eos_facts
+#   cli_config, cli_command
+#   debug, set_fact, assert, fail, pause
+#   include_role, include_tasks, import_tasks
+#   template, copy, block, rescue, always
+#
+# FORBIDDEN modules (your playbook will be rejected if these appear):
+#   shell, command, raw, script     → arbitrary code execution
+#   file, synchronize, fetch        → filesystem access
+#   uri, get_url                    → outbound network requests
+#   package, yum, apt               → package management
+#   user, group, service, systemd   → OS-level changes
+#   cron, at                        → scheduled task manipulation
+#
+# FORBIDDEN patterns (regardless of module):
+#   rm -rf, curl | sh, wget | sh, eval(), exec(), __import__
+#
+# PRIVILEGE ESCALATION is not permitted:
+#   become: true  and  become_user:  will cause rejection
+#
+# APPROVED ROLES (from pdsno/automation/core/roles/):
+#   common              → connectivity check, basic facts, timestamp
+#   policy_deployment   → apply policy templates to devices
+#   network_discovery   → gather device facts and topology
+#
+# ==============================================================================
+
+---
+- name: <Short description of what this playbook does>
+  # hosts: target the right devices
+  #   all                → all devices in inventory
+  #   cisco              → all Cisco devices (grouped by vendor)
+  #   region_zone-A      → all devices in a specific region
+  #   <specific_host>    → a single device by ID
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: false
+
+  # ── Variables ──────────────────────────────────────────────────────────────
+  # Define defaults here. Any of these can be overridden by passing
+  # extra_vars when the playbook is submitted through the approval flow.
+  vars:
+    # Who is running this — used for audit logging
+    playbook_author: "<your_username>"
+    playbook_version: "1.0.0"
+
+    # Create a backup before making changes (strongly recommended)
+    config_backup: true
+
+    # Verify the configuration after applying it
+    verify_after_apply: true
+
+    # Your task-specific variables — replace with your actual vars
+    # Example for VLAN provisioning:
+    vlan_id: 100
+    vlan_name: "CustomVLAN"
+    vlan_description: "<description of what this VLAN is for>"
+    interfaces: []          # List of {name, type, description} dicts
+
+    # Name of your custom Jinja2 template (without path)
+    # Must exist in pdsno/automation/custom/templates/
+    custom_template: "user_<username>_<template_name>.j2"
+
+  # ── Roles ──────────────────────────────────────────────────────────────────
+  roles:
+    - common              # Always include — handles connectivity and basic facts
+
+  # ── Pre-tasks ──────────────────────────────────────────────────────────────
+  pre_tasks:
+    - name: "Log playbook start"
+      debug:
+        msg: >
+          Starting {{ playbook_name }} v{{ playbook_version }}
+          by {{ playbook_author }} on {{ inventory_hostname }}
+          at {{ ansible_date_time.iso8601 }}
+
+    - name: "Validate required variables are set"
+      assert:
+        that:
+          - vlan_id is defined
+          - vlan_name is defined
+          - custom_template is defined
+          - playbook_author != "<your_username>"
+        fail_msg: >
+          Required variables are missing or still contain placeholder values.
+          Set vlan_id, vlan_name, and replace <your_username> in playbook_author.
+
+  # ── Tasks ──────────────────────────────────────────────────────────────────
+  tasks:
+
+    # ── Step 1: Backup current config before making any changes ──────────────
+    - name: "Create pre-change backup"
+      include_role:
+        name: common
+        tasks_from: backup
+      when: config_backup | bool
+
+    # ── Step 2: Render and apply your custom template ─────────────────────────
+    # This block shows two approaches — choose one:
+
+    # APPROACH A: Apply via a custom Jinja2 template
+    # Use this when your configuration logic lives in a .j2 template file.
+    - name: "Apply custom template (Cisco IOS)"
+      ios_config:
+        src: "{{ custom_template }}"
+      vars:
+        # Pass any variables your template needs here
+        vlan_id: "{{ vlan_id }}"
+        vlan_name: "{{ vlan_name }}"
+        vlan_description: "{{ vlan_description }}"
+        interfaces: "{{ interfaces }}"
+        region: "{{ region | default('unknown') }}"
+        template_author: "{{ playbook_author }}"
+        template_version: "{{ playbook_version }}"
+      when: ansible_network_os == 'ios'
+
+    - name: "Apply custom template (Juniper JunOS)"
+      junos_config:
+        src: "{{ custom_template }}"
+        src_format: set
+      vars:
+        vlan_id: "{{ vlan_id }}"
+        vlan_name: "{{ vlan_name }}"
+        vlan_description: "{{ vlan_description }}"
+        interfaces: "{{ interfaces }}"
+        region: "{{ region | default('unknown') }}"
+        template_author: "{{ playbook_author }}"
+        template_version: "{{ playbook_version }}"
+      when: ansible_network_os == 'junos'
+
+    - name: "Apply custom template (Arista EOS)"
+      eos_config:
+        src: "{{ custom_template }}"
+      vars:
+        vlan_id: "{{ vlan_id }}"
+        vlan_name: "{{ vlan_name }}"
+        vlan_description: "{{ vlan_description }}"
+        interfaces: "{{ interfaces }}"
+        region: "{{ region | default('unknown') }}"
+        template_author: "{{ playbook_author }}"
+        template_version: "{{ playbook_version }}"
+      when: ansible_network_os == 'eos'
+
+    # APPROACH B: Apply inline configuration directly in the playbook
+    # Use this for simple, short configurations that don't need a template.
+    # Remove approach A above if you use this instead.
+    #
+    # - name: "Apply inline configuration (Cisco IOS)"
+    #   ios_config:
+    #     lines:
+    #       - "vlan {{ vlan_id }}"
+    #       - "name {{ vlan_name }}"
+    #   when: ansible_network_os == 'ios'
+
+    # ── Step 3: Save the configuration ───────────────────────────────────────
+    - name: "Save configuration (Cisco IOS)"
+      ios_config:
+        save_when: always
+      when: ansible_network_os == 'ios'
+
+    - name: "Commit configuration (Juniper JunOS)"
+      junos_config:
+        confirm_commit: true
+      when: ansible_network_os == 'junos'
+
+    - name: "Save configuration (Arista EOS)"
+      eos_config:
+        save_when: always
+      when: ansible_network_os == 'eos'
+
+  # ── Post-tasks ─────────────────────────────────────────────────────────────
+  post_tasks:
+    - name: "Verify configuration was applied"
+      include_role:
+        name: common
+        tasks_from: verify
+      when: verify_after_apply | bool
+
+    - name: "Log playbook completion"
+      debug:
+        msg: >
+          Completed {{ playbook_name }} on {{ inventory_hostname }}
+          at {{ ansible_date_time.iso8601 }}.
+          Backup created: {{ config_backup }}.
+          Verification run: {{ verify_after_apply }}.
+
+  # ── Error handling ─────────────────────────────────────────────────────────
+  # If any task fails, this block runs before the play ends.
+  # Use it to notify, log, or trigger a rollback.
+  #
+  # Note: Automatic rollback requires a backup to exist (config_backup: true).
+  # To trigger a rollback on failure, use the rollback playbook:
+  #   pdsno/automation/core/playbooks/rollback.yaml
+  #   with extra_vars: device_id=<id> backup_id=<id>
