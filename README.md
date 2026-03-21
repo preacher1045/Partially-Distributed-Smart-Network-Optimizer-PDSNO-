@@ -1,430 +1,252 @@
-
 # PDSNO — Partially Distributed Software-Defined Network Orchestrator
 
-> **An intelligent, modular, and scalable orchestration framework for distributed networks.**
-> Designed to unify global, regional, and local control — making modern networks adaptive, efficient, and self-optimizing.
+> **You're running Cisco ACI in the data center, VMware NSX for virtualization, and something else at the branch. You have three dashboards, three policy systems, and three audit logs. When something breaks, you reconstruct what happened manually. PDSNO fixes that.**
 
-![Status](https://img.shields.io/badge/Status-Foundation%20Complete-brightgreen)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
-![Architecture](https://img.shields.io/badge/Architecture-Hierarchical%20%7C%20Distributed-orange)
-![Tests](https://img.shields.io/badge/Tests-Passing-success)
+![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)
+![Python](https://img.shields.io/badge/Python-3.11%2B-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-62%20Passing-success)
+![Phase](https://img.shields.io/badge/Phase-6D%20Complete-orange)
+![Status](https://img.shields.io/badge/Status-Active%20Development-yellow)
+![Contributions](https://img.shields.io/badge/Contributions-Welcome-brightgreen)
 
 ---
 
-## 🚀 Quick Start
+## What Is PDSNO?
 
-```bash
-# Install dependencies
-pip install -r requirements.txt
+PDSNO is an open-source network orchestration framework that sits **above** your existing vendor tools — Cisco ACI, VMware NSX, Juniper Apstra, whatever you're running — and provides the layer none of them deliver alone:
 
-# Run the main entry point
-python pdsno/main.py
+- **Unified governance** across vendor domains
+- **Cross-domain change approval** with cryptographic execution tokens
+- **A single audit trail** that covers every change, regardless of vendor
+- **Policy consistency enforcement** that doesn't care which vendor manufactured the device
 
-# Try the examples
-python examples/basic_algorithm_usage.py
-python examples/nib_store_usage.py
+The target environment is any organization running multiple vendor platforms and experiencing the governance gaps that creates. If your compliance team cannot produce a unified 90-day change record, or if you manage policy in three separate systems that can drift out of sync, PDSNO is designed for you.
 
-# Run tests
-python -m pytest
+PDSNO does not replace Cisco ACI or VMware NSX. It governs them.
+
+---
+
+## The Architecture
+
+PDSNO uses a three-tier hierarchical controller model grounded in ONF SDN Architecture (TR-521) and the Onix NIB design (Koponen et al., OSDI 2010):
+
+```
+┌─────────────────────────────────────────────────────┐
+│          Global Controller (GC)                      │
+│  Root of trust · HIGH config approval · Global policy│
+└──────────────────────┬──────────────────────────────┘
+                       │ East/West
+┌──────────────────────▼──────────────────────────────┐
+│          Regional Controller (RC)                    │
+│  Zone governance · MEDIUM/LOW approval · LC validation│
+└──────────────────────┬──────────────────────────────┘
+                       │ East/West
+┌──────────────────────▼──────────────────────────────┐
+│          Local Controller (LC)                       │
+│  Device discovery · Config execution · SBI interface │
+└──────────────────────┬──────────────────────────────┘
+                       │ SBI (NETCONF, SNMP, ARP, ICMP)
+                 Network Devices
 ```
 
-**📖 New to PDSNO?** Start with [QUICK_START.md](QUICK_START.md) for detailed setup instructions.
-
-**📋 Recent Updates?** See [UPDATE_SUMMARY.md](UPDATE_SUMMARY.md) for what's new.
+Every controller reads and writes state through the **Network Information Base (NIB)** — a shared state store that eliminates consistency bugs from local controller memory. Every action produces a signed, tamper-evident audit entry. No change executes without a cryptographic execution token bound to the specific proposal, devices, and time window.
 
 ---
 
-## ✅ Implemented Features
+## What's Built
 
-**Current Phase:** Foundation Complete (Phases 1-3 from [ROADMAP](docs/ROADMAP_AND_TODO.md))
+This project is in active development. Here's an honest snapshot of what exists today:
 
-### Core Framework
-- ✅ **AlgorithmBase** - Three-phase lifecycle pattern (initialize → execute → finalize)
-- ✅ **BaseController** - Controller orchestration with context management
-- ✅ **ContextManager** - Thread-safe YAML configuration with atomic writes
-- ✅ **Structured Logging** - JSON-formatted logs with controller IDs
+### ✅ Complete and Tested (62/62 tests passing)
 
-### Data Layer (NIB)
-- ✅ **NIBStore** - SQLite-backed Network Information Base
-- ✅ **Data Models** - Device, Config, Policy, Event, Lock, Controller entities
-- ✅ **Optimistic Locking** - Version-based conflict detection for concurrent writes
-- ✅ **Event Log** - Immutable audit trail with HMAC signatures
-- ✅ **Coordination Locks** - Distributed lock mechanism with TTL
+| Component | What It Does |
+|-----------|-------------|
+| **Three-tier controller hierarchy** | Global, Regional, Local controllers with delegated validation authority |
+| **Controller validation** | Full 6-step challenge-response flow — bootstrap token, nonce signing, policy checks, atomic identity assignment |
+| **Network Information Base (NIB)** | SQLite-backed shared state store with optimistic locking, append-only Event Log, device locks |
+| **Device discovery** | ARP, ICMP, SNMP parallel scanning with delta detection and MAC-based deduplication |
+| **Configuration approval** | Sensitivity classification (LOW/MEDIUM/HIGH/EMERGENCY), approval workflows, state machine |
+| **Execution tokens** | HMAC-SHA256 signed, single-use, bound to proposal + config hash + target devices + expiry |
+| **REST communication** | FastAPI endpoints for controller-to-controller request/response |
+| **MQTT pub/sub** | Policy distribution (GC → RC → LC), discovery report broadcasting |
+| **Message authentication** | HMAC-SHA256 signing on all inter-controller messages, replay attack prevention via nonces |
+| **DH key exchange** | Ephemeral Diffie-Hellman with HKDF derivation — perfect forward secrecy, no pre-shared secrets |
+| **Vendor adapter layer** | Factory pattern for Cisco IOS (Netmiko/SSH), Juniper (PyEZ/NETCONF), Arista (eAPI), Generic NETCONF |
+| **RBAC** | Role definitions for Global/Regional/Local controllers, operators, API clients |
+| **Algorithm lifecycle** | `initialize → execute → finalize` pattern enforced across all operational modules |
 
-### Communication Layer
-- ✅ **Message Formats** - Standard message envelope and type system
-- ✅ **REST Client** - HTTP-based controller-to-controller messaging
-- ✅ **Message Types** - Validation, Discovery, Config, Policy messages
+### 🔄 In Progress
 
-### Development Infrastructure
-- ✅ **Test Suite** - Pytest-based tests with fixtures
-- ✅ **Examples** - Working demonstrations of core features
-- ✅ **Documentation** - Comprehensive specs and guides
+- Phase 7 state machine integration (config approval ↔ execution token handoff)
+- ContainerLab integration for real network testing (FRRouting)
+- Production hardening (TLS, rate limiting, Prometheus metrics)
 
----
+### 📋 Planned
 
-## What Problem It Solves
-
-Modern networks are increasingly **complex**, **dynamic**, and **geographically distributed**, making it difficult to manage performance, policies, and automation at scale.
-Traditional orchestrators are often **monolithic**, **vendor-locked**, or **lacking adaptive intelligence**.
-
-**PDSNO** aims to solve this by introducing a **hierarchical distributed orchestration model** that blends intelligence and modularity — allowing administrators to manage, monitor, and optimize networks in real time without losing control or visibility.
-
----
-
-## Network Orchestration Use Cases
-
-PDSNO is designed to serve as a **next-generation orchestration system**, handling challenges across enterprise and ISP environments, including:
-
-*  **Dynamic Device Discovery** — Detects new, disconnected, or rogue devices in real time.
-*  **Congestion Detection & Response** — Identifies traffic bottlenecks and automatically reroutes flows.
-*  **Policy Enforcement & Optimization** — Ensures consistent rules across distributed controllers.
-*  **Multi-Domain Coordination** — Synchronizes operations across different network zones or data centers.
-*  **Event-Driven Automation** — Responds intelligently to topology or performance changes as they occur.
+- Vendor adapters for Cisco ACI REST API, VMware NSX Manager
+- Multi-machine deployment testing
+- Web dashboard (NBI layer)
+- AI/ML decision layer for predictive orchestration
 
 ---
 
-##  High-Level Architecture
-
-PDSNO’s architecture follows a **hierarchical distributed control model**, enabling both centralized intelligence and localized decision-making:
-
-### 🔹 Controllers
-
-| Layer                   | Responsibility                                                                | Example Tasks                              |
-| :---------------------- | :---------------------------------------------------------------------------- | :----------------------------------------- |
-| **Global Controller**   | High-level orchestration, cross-region optimization, and policy distribution. | Global policy sync, telemetry aggregation. |
-| **Regional Controller** | Zone-specific optimization and performance tuning.                            | Load balancing, zone-level analytics.      |
-| **Local Controller**    | Device-level control and low-latency responses.                               | Interface monitoring, fast rerouting.      |
-
-### 🔹 Internal Layers
-
-Each controller includes four main layers:
-
-* **Application Layer** → Implements discovery, optimization, and orchestration logic.
-* **Communication Layer** → Handles messaging (e.g., REST, MQTT) between controllers.
-* **Decision Layer** → Runs analytics, decision-making, and rule evaluation.
-* **Data Layer** → Manages lightweight storage (e.g., SQLite) for metadata and device info.
-
-### 🔹 Data & Control Flow
-
-* **Upstream:** Local → Regional → Global (for telemetry and insights).
-* **Downstream:** Global → Regional → Local (for decisions, updates, and control actions).
-
----
-
-## Future Scalability Goals
-
-PDSNO is being designed with **enterprise-grade scalability** in mind.
-The roadmap includes:
-
-* **Microservices Transition** — Decouple components for modular deployment and updates.
-* **Cloud-Native Compatibility** — Support Kubernetes, Docker, and CI/CD orchestration.
-* **AI-Driven Decision Layer** — Leverage ML models for predictive analytics and proactive control.
-* **Extensible Plugin Framework** — Enable vendor-agnostic integrations and third-party extensions.
-* **Multi-Tenant & Multi-Domain Support** — Support ISPs and large organizations with federated control.
-
----
-
-## Project Roadmap
-
-PDSNO is in its **Design & Architecture** phase.  
-The project is being developed iteratively, starting with a Python-based proof of concept before transitioning to a scalable, multi-language orchestration framework.
-
-Below is a high-level overview of the planned directions and system evolution:
-
-| **Theme** | **Focus Areas** |
-|------------|----------------|
-|  **Architecture Evolution** | Gradual transition to a microservices model, refined controller hierarchy (Global–Regional–Local), and event-driven orchestration. |
-| **Intelligent Orchestration** | Integrate AI/ML-based decision systems, adaptive device discovery, and predictive congestion management. |
-| **Automation & Integration** | Deep Ansible integration, plugin-based architecture, and vendor-agnostic interoperability APIs. |
-| **Security & Access Control** | Role-based access (RBAC), secure controller communication, and organization-specific onboarding. |
-| **Cloud-Native Scalability** | Full support for Kubernetes/Docker, hybrid cloud/edge deployment, and polyglot service design. |
-| **Data & Observability** | Enhanced telemetry, lightweight data storage (SQLite → Redis/Postgres), and structured audit logging. |
-| **Enterprise & Multi-Domain Readiness** | Multi-tenant orchestration, NMS/OSS compatibility, and a sandboxed simulation environment. |
-
-> A detailed version of this roadmap is available in [`/docs/roadmap.md`](docs/roadmap.md).
-
----
-
-## 📦 Installation
+## Quick Start
 
 ### Prerequisites
-- Python 3.11 or higher
-- pip package manager
 
-### Setup
+- Python 3.11+
+- Git
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd Partially-Distributed-Smart-Network-Optimizer-PDSNO-
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Verify installation:**
-   ```bash
-   python PDSNO/main.py
-   ```
-
-4. **Run tests:**
-   ```bash
-   python -m pytest
-   ```
-
-See [QUICK_START.md](QUICK_START.md) for detailed instructions and usage examples.
-
----
-
-## 🧪 Testing
-
-### Unit & Integration Tests
-
-Run the complete test suite:
-```bash
-python -m pytest
-```
-
-Run with verbose output:
-```bash
-python -m pytest -v --tb=short
-```
-
-Run specific test files:
-```bash
-python -m pytest tests/test_end_to_end.py -v
-python -m pytest tests/test_controllers.py -v
-```
-
-### Testing with Real Devices
-
-The test suite includes integration tests against real network devices (`tests/integration/test_adapters_real.py`), which are skipped by default as they require actual hardware.
-
-To run integration tests against real network devices:
-
-1. **Set up test devices** (Cisco IOS, Juniper, Arista)
-
-2. **Configure credentials in environment:**
-   ```bash
-   # Enable real device testing
-   export PDSNO_TEST_REAL_DEVICES=1
-   
-   # Cisco device
-   export CISCO_TEST_IP=192.168.1.10
-   export CISCO_TEST_USER=admin
-   export CISCO_TEST_PASS=password
-   
-   # Juniper device
-   export JUNIPER_TEST_IP=192.168.1.20
-   export JUNIPER_TEST_USER=admin
-   export JUNIPER_TEST_PASS=password
-   
-   # Arista device
-   export ARISTA_TEST_IP=192.168.1.30
-   export ARISTA_TEST_USER=admin
-   export ARISTA_TEST_PASS=password
-   ```
-
-3. **Run real device tests:**
-   ```bash
-   pytest tests/integration/test_adapters_real.py -v
-   ```
-
-> ⚠️ **Warning:** Real device tests may modify device configuration. Use isolated test devices only.
-
----
-
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [QUICK_START.md](QUICK_START.md) | Installation and basic usage guide |
-| [UPDATE_SUMMARY.md](UPDATE_SUMMARY.md) | Recent changes and implementation details |
-| [docs/INDEX.md](docs/INDEX.md) | Complete documentation index |
-| [docs/ROADMAP_AND_TODO.md](docs/ROADMAP_AND_TODO.md) | Development roadmap and phases |
-| [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) | Architecture overview |
-| [docs/algorithm_lifecycle.md](docs/algorithm_lifecycle.md) | Algorithm design pattern |
-| [docs/nib_spec.md](docs/nib_spec.md) | Network Information Base specification |
-| [docs/api_reference.md](docs/api_reference.md) | Message formats and API contracts |
-
----
-
-## 💡 Usage Examples
-
-### Creating a Custom Algorithm
-
-```python
-from PDSNO.core.base_class import AlgorithmBase
-from datetime import datetime, timezone
-
-class MyAlgorithm(AlgorithmBase):
-    def initialize(self, context):
-        self.data = context.get('input_data', [])
-        self._initialized = True
-    
-    def execute(self):
-        super().execute()  # Validates initialization
-        self.result = sum(self.data)
-        self._executed = True
-        return self.result
-    
-    def finalize(self):
-        super().finalize()  # Validates execution
-        return {
-            "status": "complete",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "result": self.result
-        }
-```
-
-### Running with a Controller
-
-```python
-from PDSNO.controllers import BaseController, ContextManager
-
-# Setup
-context_mgr = ContextManager("config/context_runtime.yaml")
-controller = BaseController(
-    controller_id="my_controller_1",
-    role="local",
-    context_manager=context_mgr
-)
-
-# Run algorithm
-algorithm = MyAlgorithm()
-result = controller.run_algorithm(algorithm, {'input_data': [1, 2, 3, 4, 5]})
-print(f"Result: {result['result']}")  # Output: 15
-```
-
-### Working with the NIB
-
-```python
-from PDSNO.datastore import NIBStore, Device, DeviceStatus
-
-# Initialize NIB
-nib = NIBStore("config/pdsno.db")
-
-# Create and store device
-device = Device(
-    device_id="",
-    ip_address="192.168.1.100",
-    mac_address="AA:BB:CC:DD:EE:FF",
-    hostname="switch-1",
-    status=DeviceStatus.DISCOVERED
-)
-
-result = nib.upsert_device(device)
-print(f"Device stored with ID: {result.data}")
-```
-
-**More examples:** See the [examples/](examples/) directory for complete working demonstrations.
-
----
-
-## 🧪 Testing
+### Run the Simulation
 
 ```bash
-# Run all tests
-python -m pytest
+# Clone
+git clone https://github.com/AtlasIris/PDSNO.git
+cd PDSNO
 
-# Run with verbose output
-python -m pytest -v
+# Set up environment
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 
-# Run specific test file
-python -m pytest tests/test_base_classes.py
+# Initialize the NIB (Network Information Base)
+python scripts/init_db.py --db config/pdsno.db
 
-# Run with coverage report
-python -m pytest --cov=PDSNO --cov-report=html
+# Run the full validation + discovery simulation
+python examples/simulate_discovery.py
+
+# Run the test suite
+pytest tests/ -v
 ```
 
----
+### What the simulation does
 
-## 🗺️ Current Status & Roadmap
-
-### ✅ Phase 0-3: Foundation (COMPLETE)
-- [x] Documentation architecture complete
-- [x] Base classes implemented
-- [x] NIB storage layer operational
-- [x] Communication layer functional
-- [x] Test infrastructure in place
-
-### 🔄 Phase 4: Controller Validation (NEXT)
-- [ ] Challenge-response validation flow
-- [ ] Global Controller implementation
-- [ ] Regional Controller implementation
-- [ ] Message bus for controller communication
-- [ ] Validation simulation script
-
-### 📋 Phase 5+: Advanced Features (PLANNED)
-- [ ] Device discovery module
-- [ ] Configuration approval workflow
-- [ ] Policy distribution system
-- [ ] Integration with real network devices
-- [ ] Web dashboard and monitoring
-
-**Full roadmap:** See [docs/ROADMAP_AND_TODO.md](docs/ROADMAP_AND_TODO.md)
+The discovery simulation starts a Global Controller, validates a Regional Controller through the full 6-step challenge-response flow, creates a Local Controller, runs ARP/ICMP/SNMP scans against a simulated subnet, writes discovered devices to the NIB, sends a delta discovery report to the RC, and checks for MAC address collisions across controllers. You'll see the full audit trail in the output.
 
 ---
 
-## Current Focus
+## How It Compares
 
-> **PDSNO has completed its foundation phase** and is ready for Phase 4 development.
->
-> **What's working:**
-> - ✅ Complete base framework with algorithms, controllers, and data layer
-> - ✅ SQLite-backed NIB with optimistic locking and audit logging
-> - ✅ Structured JSON logging and configuration management
-> - ✅ Message formats and REST communication layer
-> - ✅ Comprehensive test suite and working examples
->
-> **Next milestone:** Implement controller validation with challenge-response authentication
->
-> **Getting started:** See [QUICK_START.md](QUICK_START.md) for installation and usage
+| Capability | Cisco ACI | VMware NSX | Juniper Apstra | **PDSNO** |
+|-----------|-----------|-----------|----------------|-----------|
+| Multi-vendor governance | ❌ Cisco only | ❌ VMware only | ⚠️ Limited | ✅ Vendor-agnostic |
+| Unified audit trail | ❌ Per-domain | ❌ Per-domain | ⚠️ Partial | ✅ Cross-domain |
+| Open source | ❌ | ❌ | ❌ | ✅ AGPL-3.0 |
+| Cryptographic change governance | ⚠️ | ⚠️ | ⚠️ | ✅ Signed tokens |
+| Cross-domain policy enforcement | ❌ | ❌ | ⚠️ | ✅ Designed for it |
+| Sits above existing tools | ❌ | ❌ | ❌ | ✅ Augments, not replaces |
 
-For architectural details: [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md)
+Juniper Apstra is the closest existing product to what PDSNO is building — it was acquired precisely because it solved multi-vendor management. Apstra is now owned by Juniper, which creates commercial incentives to favour Juniper hardware. PDSNO has no such incentive.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+PDSNO is actively looking for contributors across several domains. You don't need to be an expert in all of them.
 
-### Development Setup
+### Where You Can Help Right Now
 
-1. Fork the repository
-2. Create a feature branch
-3. Install dependencies: `pip install -r requirements.txt`
-4. Make your changes
-5. Run tests: `python -m pytest`
-6. Submit a pull request
+**Network engineers / SDN specialists**
+- Test the vendor adapters against real Cisco, Juniper, or Arista hardware
+- Contribute adapter implementations for vendors not yet covered
+- Validate discovery behaviour against real network topologies
+- Set up ContainerLab integration for CI testing
 
-### Code Standards
-- Follow the algorithm lifecycle pattern for new algorithms
-- Use structured logging via `get_logger()`
-- Write tests for new functionality
-- Update documentation as needed
+**Python / distributed systems developers**
+- Fix the Phase 7 state machine integration (tracked in issue [link])
+- Improve NIB consistency under concurrent writes
+- Build the REST API NBI layer for external tool integration
+- Write integration tests against ContainerLab topologies
+
+**Security engineers**
+- Review the cryptographic implementation (HMAC, DH key exchange, token binding)
+- Threat model review — compare against `docs/threat_model_and_mitigation.md`
+- TLS/mTLS implementation for Phase 8
+
+**DevOps / infrastructure engineers**
+- ContainerLab topology files for CI
+- Kubernetes Helm chart improvements
+- Docker Compose multi-controller setup
+- GitHub Actions CI pipeline
+
+### Getting Started
+
+```bash
+# Read these three documents first
+cat docs/PROJECT_OVERVIEW.md
+cat docs/architecture.md
+cat docs/INDEX.md
+
+# Then set up your environment
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+pytest tests/ -v
+```
+
+Full contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+
+Open questions and good first issues: [GitHub Issues](../../issues)
+
+### Architecture Principles (Read Before Contributing)
+
+Three rules that govern every contribution:
+
+1. **State lives in the NIB.** No controller trusts local memory for network facts. All reads and writes go through `NIBStore`.
+2. **Every action is auditable.** No change executes without a signed audit trail entry.
+3. **Hierarchy for governance, not performance.** The three-tier model exists for chain-of-authority, not speed. We accept the latency cost.
+
+If your contribution violates any of these, it will need to be rethought regardless of how well it works technically.
 
 ---
 
-## 📄 License
+## Documentation
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+| Document | What It Covers |
+|----------|---------------|
+| [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) | Architecture foundations and design decisions |
+| [docs/architecture.md](docs/architecture.md) | System layers, controller matrix, key decisions |
+| [docs/nib_spec.md](docs/nib_spec.md) | NIB schema, consistency model, write protocol |
+| [docs/communication_model.md](docs/communication_model.md) | REST/MQTT split, message envelope, auth |
+| [docs/algorithm_lifecycle.md](docs/algorithm_lifecycle.md) | The initialize/execute/finalize pattern |
+| [docs/pdsno_gap_analysis.md](docs/pdsno_gap_analysis.md) | Competitive analysis vs Cisco ACI, VMware NSX, Juniper Apstra |
+| [docs/threat_model_and_mitigation.md](docs/threat_model_and_mitigation.md) | Security threat scenarios and mitigations |
+| [docs/api_reference.md](docs/api_reference.md) | All inter-controller message types and payloads |
+| [docs/use_cases.md](docs/use_cases.md) | Seven end-to-end scenarios traced through the system |
+| [docs/ROADMAP_AND_TODO.md](docs/ROADMAP_AND_TODO.md) | Full phased development plan with open questions |
+| [docs/INDEX.md](docs/INDEX.md) | Complete documentation map and reading order |
 
 ---
 
-## 🔗 Related Documentation
+## Research Foundation
 
-- [Architecture Decision Records](docs/ROADMAP_AND_TODO.md#phase-0--documentation-completion--architecture-hardening)
-- [Security Model](docs/threat_model_and_mitigation.md)
-- [Communication Model](docs/communication_model.md)
-- [NIB Consistency Model](docs/nib_consistency.md)
-- [Vendor Gap Analysis](docs/pdsno_gap_analysis.md)
+PDSNO's architecture is grounded in published SDN research:
+
+- **Koponen et al. — Onix (OSDI 2010):** The NIB concept. Controllers read/write shared state rather than communicating directly. PDSNO independently arrived at the same design before encountering this paper.
+- **ONF TR-521 SDN Architecture:** Standardised interface naming (NBI, SBI, East/West). PDSNO follows these conventions throughout.
+- **Alsheikh et al. — Distributed SDN Management (ARO 2024):** Adaptive consistency model. Justification for the REST + MQTT protocol split.
+- **DISCO (Phemius et al.):** Delta-sync principle. Controllers exchange only what changed, never full state dumps.
+- **Self-Organizing Network principles:** Self-Configuration (discovery), Self-Optimization (congestion), Self-Healing (rollback) map directly to PDSNO's algorithm modules.
 
 ---
 
-**Built with research-backed architectural patterns from SDN literature (Onix, ONF TR-521, DISCO)**
+## License
 
+PDSNO is licensed under the **GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)**.
+
+This means: you can use, study, modify, and distribute PDSNO freely. If you use PDSNO in a networked product or service, your modifications must also be released under AGPL-3.0. This protects the project from being absorbed into proprietary products without contributing back.
+
+See [LICENSE](LICENSE) for the full text.
+
+---
+
+## Project Status
+
+PDSNO is the technical foundation of **TENKEI** (天系 — Celestial System), a company being built around open-source enterprise network orchestration.
+
+The codebase is the result of deliberate, research-backed architectural work. The hierarchy, the NIB design, the consistency model, the security primitives — none of these are accidents or placeholders. They are documented decisions with explicit tradeoffs.
+
+If you're a network engineer frustrated with vendor lock-in, a distributed systems developer looking for a serious Python infrastructure project, or a security engineer who wants to review real cryptographic governance code — this project is worth your time.
+
+---
+
+*Built on research-backed SDN architecture. Grounded in real enterprise pain.*

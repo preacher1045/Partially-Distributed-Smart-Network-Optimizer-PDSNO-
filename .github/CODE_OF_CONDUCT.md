@@ -1,81 +1,64 @@
 # 🌍 PDSNO Code of Conduct
 
-Welcome to the **PDSNO (Programmable Distributed Software Network Orchestrator)** project!  
-We are building an open, intelligent, and distributed network orchestration platform — together.
+Welcome to the **PDSNO (Partially Distributed Software-Defined Network Orchestrator)** project — the open-source network orchestration framework built by **TENKEI**.
 
-Our goal is to create a space where **anyone**, regardless of background or experience level, can learn, collaborate, and contribute meaningfully.  
-To achieve this, we have a few community standards that everyone is expected to follow.
+We are building a serious piece of infrastructure. That requires a community where people can disagree productively, ask questions without embarrassment, and contribute without gatekeeping. This Code of Conduct defines the baseline for that environment.
 
 ---
 
 ## 🤝 Our Pledge
 
-In the interest of fostering an open and welcoming environment, we as contributors and maintainers pledge to:
+We pledge to make participation in this project a harassment-free experience for everyone, regardless of background, experience level, or technical specialty.
 
-- Treat everyone with **respect and empathy**  
-- Create a **safe and harassment-free environment**  
-- Welcome and support contributors from all backgrounds  
-- Focus on **constructive feedback** and **continuous improvement**
+We value contributors who:
+- Ask hard questions about architecture decisions
+- Push back on design choices with evidence
+- Bring domain expertise from network engineering, security, distributed systems, or operations
+- Are learning as they go and say so
 
-We are committed to making participation in our project a positive experience for everyone.
+We do not value credentials over substance. A junior engineer with a reproducible bug report contributes more than a senior engineer with an untested opinion.
 
 ---
 
 ## 🧠 Our Standards
 
-Examples of behavior that contribute to a positive environment include:
+Behaviour that makes this project better:
 
-- Using welcoming and inclusive language  
-- Being respectful of differing viewpoints and experiences  
-- Giving and gracefully accepting constructive criticism  
-- Showing empathy toward other community members  
-- Focusing on what’s best for the project and community
+- Clear, direct communication — say what you mean
+- Constructive criticism with reasoning, not just opinion
+- Acknowledging when you're wrong or when someone else's approach is better
+- Asking for clarification before assuming bad intent
+- Staying focused on the technical problem
 
-Examples of unacceptable behavior include:
+Behaviour that is not acceptable:
 
-- The use of sexualized language or imagery and unwelcome advances  
-- Trolling, insulting, or derogatory comments  
-- Public or private harassment  
-- Publishing others’ private information without consent  
-- Conduct which could reasonably be considered inappropriate in a professional setting
-
----
-
-## 🧩 Our Responsibilities
-
-Project maintainers are responsible for clarifying community standards and taking appropriate action when unacceptable behavior occurs.
-
-Maintainers have the right and responsibility to remove, edit, or reject contributions (code, comments, commits, or issues) that violate this Code of Conduct.
+- Harassment, personal attacks, or discriminatory language
+- Dismissing contributions based on who made them rather than what they contain
+- Publishing private information about anyone without consent
+- Conduct that would be considered unprofessional in any engineering context
 
 ---
 
-## ⚖️ Scope
+## 🧩 Scope
 
-This Code of Conduct applies within all project spaces — including GitHub issues, discussions, pull requests, and any community channels related to PDSNO — and also applies when representing the project in public spaces.
+This Code of Conduct applies in all project spaces: GitHub issues, pull requests, discussions, and any community channels associated with PDSNO or TENKEI. It also applies when representing the project publicly.
 
 ---
 
-## 🛠 Enforcement
+## ⚖️ Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the maintainers at:
+If you experience or witness unacceptable behaviour, report it to the maintainers at:
 
- **pdsno-community@atlasiris.org** (placeholder email — update when ready)
+**contact@tenkei.dev**
 
-All complaints will be reviewed and investigated promptly and fairly.  
-Maintainers are obligated to respect the privacy and safety of reporters.
+All reports will be reviewed and investigated promptly. The privacy and safety of reporters will be respected.
 
 ---
 
 ## Attribution
 
-This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1, available at:  
-https://www.contributor-covenant.org/version/2/1/code_of_conduct/
+This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1.
 
 ---
 
-## Summary
-
-PDSNO is a learning-first, innovation-driven project.  
-We aim to cultivate a community where people can **grow**, **collaborate**, and **build the future of intelligent network orchestration** — together.
-
-Let’s keep it open, respectful, and forward-looking.
+*PDSNO is serious infrastructure. Build it seriously, treat each other seriously.*
