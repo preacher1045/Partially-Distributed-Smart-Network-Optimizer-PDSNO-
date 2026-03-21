@@ -15,11 +15,38 @@ Manages configuration approval workflows based on sensitivity:
 Implements state machine with transitions and timeout handling.
 """
 
+# Copyright (C) 2025 TENKEI
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# This file is part of PDSNO.
+# See the LICENSE file in the project root for license information.
+
+"""
+Approval Workflow Engine
+
+Manages configuration approval workflows based on sensitivity:
+- LOW: Automatic approval (no human intervention)
+- MEDIUM: Regional Controller approval required
+- HIGH: Global Controller approval required
+
+Fix (2026-03-21):
+  - Requests are now persisted to NIB on submit_request() so the RC's
+    engine instance can retrieve them. Previously both LC and RC held
+    separate in-memory dicts, causing "Request not found" across
+    controller boundaries.
+  - LOW sensitivity path now correctly transitions DRAFT -> PENDING_APPROVAL
+    -> APPROVED (two hops) instead of attempting DRAFT -> APPROVED in a
+    single call to approve_request() which bypassed submit_request().
+  - NIBStore is optional (defaults to None) for backwards compatibility
+    with unit tests that don't inject a store.
+"""
+
 from enum import Enum
 from typing import Dict, List, Optional
 from datetime import datetime, timezone, timedelta
 import logging
 import uuid
+import json
 
 from pdsno.config.sensitivity_classifier import SensitivityLevel
 
@@ -37,9 +64,7 @@ class ApprovalState(Enum):
 
 
 class ApprovalRequest:
-    """
-    Represents a configuration change requiring approval.
-    """
+    """Represents a configuration change requiring approval."""
 
     def __init__(
         self,
@@ -50,17 +75,6 @@ class ApprovalRequest:
         requester_id: str,
         created_at: Optional[datetime] = None
     ):
-        """
-        Initialize approval request.
-
-        Args:
-            request_id: Unique identifier
-            device_id: Target device
-            config_lines: Configuration commands
-            sensitivity: Sensitivity classification
-            requester_id: Controller that initiated request
-            created_at: Request creation timestamp
-        """
         self.request_id = request_id
         self.device_id = device_id
         self.config_lines = config_lines
@@ -68,23 +82,19 @@ class ApprovalRequest:
         self.requester_id = requester_id
         self.created_at = created_at or datetime.now(timezone.utc)
 
-        # State management
         self.state = ApprovalState.DRAFT
         self.approvers: List[str] = []
         self.rejector: Optional[str] = None
         self.rejection_reason: Optional[str] = None
 
-        # Timestamps
         self.submitted_at: Optional[datetime] = None
         self.approved_at: Optional[datetime] = None
         self.executed_at: Optional[datetime] = None
 
-        # Execution
         self.execution_token: Optional[str] = None
         self.execution_result: Optional[Dict] = None
 
     def to_dict(self) -> Dict:
-        """Serialize to dictionary"""
         return {
             'request_id': self.request_id,
             'device_id': self.device_id,
@@ -105,7 +115,6 @@ class ApprovalRequest:
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'ApprovalRequest':
-        """Deserialize from dictionary"""
         request = cls(
             request_id=data['request_id'],
             device_id=data['device_id'],
@@ -114,22 +123,18 @@ class ApprovalRequest:
             requester_id=data['requester_id'],
             created_at=datetime.fromisoformat(data['created_at'])
         )
-
         request.state = ApprovalState(data['state'])
         request.approvers = data['approvers']
         request.rejector = data['rejector']
         request.rejection_reason = data['rejection_reason']
-
         if data['submitted_at']:
             request.submitted_at = datetime.fromisoformat(data['submitted_at'])
         if data['approved_at']:
             request.approved_at = datetime.fromisoformat(data['approved_at'])
         if data['executed_at']:
             request.executed_at = datetime.fromisoformat(data['executed_at'])
-
         request.execution_token = data['execution_token']
         request.execution_result = data['execution_result']
-
         return request
 
 
@@ -138,32 +143,70 @@ class ApprovalWorkflowEngine:
     Manages approval workflows for configuration changes.
 
     Workflow rules:
-    - LOW sensitivity: Auto-approve
-    - MEDIUM sensitivity: Requires Regional Controller approval
-    - HIGH sensitivity: Requires Global Controller approval
+    - LOW: Auto-approve (no human review needed)
+    - MEDIUM: Regional Controller approval required
+    - HIGH: Global Controller approval required
+
+    Requests are persisted to NIB so they are visible across controller
+    boundaries. The in-memory dict is a write-through cache.
     """
 
     def __init__(
         self,
         controller_id: str,
         controller_role: str,
-        approval_timeout_minutes: int = 60
+        approval_timeout_minutes: int = 60,
+        nib_store=None   # Optional NIBStore — injected by controller
     ):
-        """
-        Initialize approval workflow engine.
-
-        Args:
-            controller_id: This controller's ID
-            controller_role: "global", "regional", or "local"
-            approval_timeout_minutes: Minutes before approval expires
-        """
         self.controller_id = controller_id
         self.controller_role = controller_role
         self.approval_timeout = timedelta(minutes=approval_timeout_minutes)
+        self.nib_store = nib_store
         self.logger = logging.getLogger(f"{__name__}.{controller_id}")
 
-        # Active approval requests
+        # In-memory cache — source of truth is NIB when nib_store is set
         self.requests: Dict[str, ApprovalRequest] = {}
+
+    # ── NIB persistence helpers ──────────────────────────────────────────────
+
+    def _persist_request(self, request: ApprovalRequest):
+        """Write request state to NIB if a store is available."""
+        if not self.nib_store:
+            return
+        try:
+            # Store serialised request as a config record in the NIB
+            from pdsno.datastore.models import Config, ConfigStatus
+            config = Config(
+                config_id=request.request_id,
+                device_id=request.device_id,
+                config_data=json.dumps(request.to_dict()),
+                status=ConfigStatus.PROPOSED if request.state == ApprovalState.PENDING_APPROVAL
+                       else ConfigStatus.APPROVED if request.state == ApprovalState.APPROVED
+                       else ConfigStatus.PROPOSED,
+                proposed_by=request.requester_id,
+                approved_by=request.approvers[-1] if request.approvers else None,
+                proposed_at=request.submitted_at or request.created_at,
+                approved_at=request.approved_at,
+            )
+            self.nib_store.upsert_config(config)
+        except Exception as e:
+            # Non-fatal — log and continue. In-memory state still valid.
+            self.logger.warning(f"Could not persist request {request.request_id} to NIB: {e}")
+
+    def _load_request_from_nib(self, request_id: str) -> Optional[ApprovalRequest]:
+        """Load a request from NIB (used by RC to find LC-created requests)."""
+        if not self.nib_store:
+            return None
+        try:
+            config = self.nib_store.get_config(request_id)
+            if config and config.config_data:
+                data = json.loads(config.config_data)
+                return ApprovalRequest.from_dict(data)
+        except Exception as e:
+            self.logger.warning(f"Could not load request {request_id} from NIB: {e}")
+        return None
+
+    # ── Public API ───────────────────────────────────────────────────────────
 
     def create_request(
         self,
@@ -171,19 +214,8 @@ class ApprovalWorkflowEngine:
         config_lines: List[str],
         sensitivity: SensitivityLevel
     ) -> ApprovalRequest:
-        """
-        Create a new approval request.
-
-        Args:
-            device_id: Target device
-            config_lines: Configuration commands
-            sensitivity: Sensitivity level
-
-        Returns:
-            Created approval request
-        """
+        """Create a new approval request (DRAFT state)."""
         request_id = str(uuid.uuid4())
-
         request = ApprovalRequest(
             request_id=request_id,
             device_id=device_id,
@@ -191,49 +223,64 @@ class ApprovalWorkflowEngine:
             sensitivity=sensitivity,
             requester_id=self.controller_id
         )
-
         self.requests[request_id] = request
-
         self.logger.info(
             f"Created approval request {request_id} "
             f"for device {device_id} (sensitivity: {sensitivity.value})"
         )
-
         return request
 
     def submit_request(self, request_id: str) -> bool:
         """
         Submit request for approval.
 
-        Args:
-            request_id: Request to submit
-
-        Returns:
-            True if submitted successfully
+        Always transitions DRAFT -> PENDING_APPROVAL first.
+        LOW sensitivity then immediately auto-approves in the same call,
+        producing the correct two-hop path: DRAFT -> PENDING_APPROVAL -> APPROVED.
         """
         request = self.requests.get(request_id)
         if not request:
-            self.logger.error(f"Request {request_id} not found")
+            self.logger.error(f"Request {request_id} not found in local cache")
             return False
 
         if request.state != ApprovalState.DRAFT:
-            self.logger.error(f"Request {request_id} already submitted")
+            self.logger.error(
+                f"Request {request_id} cannot be submitted from state {request.state.value}"
+            )
             return False
 
+        # Always go DRAFT -> PENDING_APPROVAL first
         request.state = ApprovalState.PENDING_APPROVAL
         request.submitted_at = datetime.now(timezone.utc)
+        self.logger.info(f"Request {request_id} submitted (PENDING_APPROVAL)")
 
-        # Auto-approve LOW sensitivity
+        # Persist so RC can find it
+        self._persist_request(request)
+
+        # LOW sensitivity: auto-approve immediately
         if request.sensitivity == SensitivityLevel.LOW:
             self.logger.info(f"Auto-approving LOW sensitivity request {request_id}")
             return self.approve_request(request_id, self.controller_id, auto=True)
 
-        self.logger.info(
-            f"Submitted request {request_id} for approval "
-            f"(sensitivity: {request.sensitivity.value})"
-        )
-
         return True
+
+    def get_request(self, request_id: str) -> Optional[ApprovalRequest]:
+        """
+        Get request by ID, checking NIB if not in local cache.
+
+        This is what allows RC to find requests originally created by LC.
+        """
+        if request_id in self.requests:
+            return self.requests[request_id]
+
+        # Try NIB — needed when RC processes a request created by LC
+        nib_request = self._load_request_from_nib(request_id)
+        if nib_request:
+            self.requests[request_id] = nib_request  # cache it
+            self.logger.debug(f"Loaded request {request_id} from NIB")
+            return nib_request
+
+        return None
 
     def approve_request(
         self,
@@ -244,27 +291,20 @@ class ApprovalWorkflowEngine:
         """
         Approve a request.
 
-        Args:
-            request_id: Request to approve
-            approver_id: Controller ID approving
-            auto: Whether this is automatic approval
-
-        Returns:
-            True if approved successfully
+        Requires state == PENDING_APPROVAL.
         """
-        request = self.requests.get(request_id)
+        request = self.get_request(request_id)
         if not request:
-            self.logger.error(f"Request {request_id} not found")
+            self.logger.error(f"Request {request_id} not found (checked cache + NIB)")
             return False
 
         if request.state != ApprovalState.PENDING_APPROVAL:
             self.logger.error(
-                f"Request {request_id} not in PENDING_APPROVAL state "
+                f"Request {request_id} not in PENDING_APPROVAL "
                 f"(current: {request.state.value})"
             )
             return False
 
-        # Verify approver has authority
         if not self._can_approve(request, approver_id):
             self.logger.error(
                 f"Controller {approver_id} lacks authority to approve "
@@ -272,21 +312,22 @@ class ApprovalWorkflowEngine:
             )
             return False
 
-        # Check for timeout
         if self._is_expired(request):
             request.state = ApprovalState.EXPIRED
-            self.logger.warning(f"Request {request_id} expired")
+            self._persist_request(request)
+            self.logger.warning(f"Request {request_id} expired before approval")
             return False
 
-        # Approve
         request.state = ApprovalState.APPROVED
         request.approved_at = datetime.now(timezone.utc)
         request.approvers.append(approver_id)
 
+        # Ensure it's in local cache (may have been loaded from NIB)
+        self.requests[request_id] = request
+        self._persist_request(request)
+
         approval_type = "Auto-approved" if auto else "Approved"
-        self.logger.info(
-            f"{approval_type} request {request_id} by {approver_id}"
-        )
+        self.logger.info(f"{approval_type} request {request_id} by {approver_id}")
 
         return True
 
@@ -296,18 +337,8 @@ class ApprovalWorkflowEngine:
         rejector_id: str,
         reason: str
     ) -> bool:
-        """
-        Reject a request.
-
-        Args:
-            request_id: Request to reject
-            rejector_id: Controller ID rejecting
-            reason: Rejection reason
-
-        Returns:
-            True if rejected successfully
-        """
-        request = self.requests.get(request_id)
+        """Reject a request."""
+        request = self.get_request(request_id)
         if not request:
             self.logger.error(f"Request {request_id} not found")
             return False
@@ -316,7 +347,6 @@ class ApprovalWorkflowEngine:
             self.logger.error(f"Request {request_id} not pending approval")
             return False
 
-        # Verify rejector has authority
         if not self._can_approve(request, rejector_id):
             self.logger.error(
                 f"Controller {rejector_id} lacks authority to reject "
@@ -328,24 +358,43 @@ class ApprovalWorkflowEngine:
         request.rejector = rejector_id
         request.rejection_reason = reason
 
-        self.logger.info(
-            f"Rejected request {request_id} by {rejector_id}: {reason}"
-        )
+        self.requests[request_id] = request
+        self._persist_request(request)
 
+        self.logger.info(f"Rejected request {request_id} by {rejector_id}: {reason}")
         return True
+
+    def get_pending_requests(self) -> List[ApprovalRequest]:
+        return [
+            req for req in self.requests.values()
+            if req.state == ApprovalState.PENDING_APPROVAL
+        ]
+
+    def cleanup_expired_requests(self) -> int:
+        count = 0
+        for request in self.requests.values():
+            if (
+                request.state == ApprovalState.PENDING_APPROVAL
+                and self._is_expired(request)
+            ):
+                request.state = ApprovalState.EXPIRED
+                self._persist_request(request)
+                count += 1
+                self.logger.info(f"Expired request {request.request_id}")
+        return count
+
+    # ── Internal helpers ─────────────────────────────────────────────────────
 
     def _can_approve(self, request: ApprovalRequest, approver_id: str) -> bool:
         """
-        Check if controller can approve request.
+        Check if controller can approve based on role inferred from ID.
 
-        Rules:
-        - LOCAL can auto-approve LOW
-        - REGIONAL can approve LOW and MEDIUM
-        - GLOBAL can approve all
+        Convention: IDs contain "global", "regional", or "local".
         """
-        if "global" in approver_id.lower():
+        aid = approver_id.lower()
+        if "global" in aid:
             approver_role = "global"
-        elif "regional" in approver_id.lower():
+        elif "regional" in aid:
             approver_role = "regional"
         else:
             approver_role = "local"
@@ -353,47 +402,53 @@ class ApprovalWorkflowEngine:
         if request.sensitivity == SensitivityLevel.LOW:
             return True
         if request.sensitivity == SensitivityLevel.MEDIUM:
-            return approver_role in ["regional", "global"]
+            return approver_role in ("regional", "global")
+        # HIGH
         return approver_role == "global"
 
     def _is_expired(self, request: ApprovalRequest) -> bool:
-        """Check if request has expired"""
         if not request.submitted_at:
             return False
+        return (datetime.now(timezone.utc) - request.submitted_at) > self.approval_timeout
 
-        age = datetime.now(timezone.utc) - request.submitted_at
-        return age > self.approval_timeout
+    # def _is_expired(self, request: ApprovalRequest) -> bool:
+    #     """Check if request has expired"""
+    #     if not request.submitted_at:
+    #         return False
 
-    def get_request(self, request_id: str) -> Optional[ApprovalRequest]:
-        """Get request by ID"""
-        return self.requests.get(request_id)
+    #     age = datetime.now(timezone.utc) - request.submitted_at
+    #     return age > self.approval_timeout
 
-    def get_pending_requests(self) -> List[ApprovalRequest]:
-        """Get all pending approval requests"""
-        return [
-            req for req in self.requests.values()
-            if req.state == ApprovalState.PENDING_APPROVAL
-        ]
+    # def get_request(self, request_id: str) -> Optional[ApprovalRequest]:
+    #     """Get request by ID"""
+    #     return self.requests.get(request_id)
 
-    def cleanup_expired_requests(self) -> int:
-        """
-        Mark expired requests.
+    # def get_pending_requests(self) -> List[ApprovalRequest]:
+    #     """Get all pending approval requests"""
+    #     return [
+    #         req for req in self.requests.values()
+    #         if req.state == ApprovalState.PENDING_APPROVAL
+    #     ]
 
-        Returns:
-            Number of requests expired
-        """
-        count = 0
+    # def cleanup_expired_requests(self) -> int:
+    #     """
+    #     Mark expired requests.
 
-        for request in self.requests.values():
-            if (
-                request.state == ApprovalState.PENDING_APPROVAL and
-                self._is_expired(request)
-            ):
-                request.state = ApprovalState.EXPIRED
-                count += 1
-                self.logger.info(f"Expired request {request.request_id}")
+    #     Returns:
+    #         Number of requests expired
+    #     """
+    #     count = 0
 
-        return count
+    #     for request in self.requests.values():
+    #         if (
+    #             request.state == ApprovalState.PENDING_APPROVAL and
+    #             self._is_expired(request)
+    #         ):
+    #             request.state = ApprovalState.EXPIRED
+    #             count += 1
+    #             self.logger.info(f"Expired request {request.request_id}")
+
+    #     return count
 
 
 # Example usage:
