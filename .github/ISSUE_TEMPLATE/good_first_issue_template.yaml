@@ -1,0 +1,111 @@
+name: 🟢 Good First Issue
+description: Suggest or flag a task suitable for first-time contributors to PDSNO
+title: "[GOOD FIRST ISSUE] <short description>"
+labels: ["good first issue", "help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Before you file this
+
+        A good first issue must be **all three of these**:
+        - **Self-contained** — completable without understanding the full codebase
+        - **Clearly bounded** — it is obvious when the work is done
+        - **Low blast radius** — if the contributor gets something wrong, it doesn't break unrelated systems
+
+        If you're unsure whether something qualifies, open a Discussion instead.
+
+        If you're a **new contributor looking for your first task**, check the existing open issues labelled `good first issue` before filing a new one.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What needs to be done
+      description: |
+        Be specific. Vague issues stay open forever.
+        Tell the contributor exactly what "done" looks like — not just the problem, but the expected result.
+      placeholder: |
+        Example: NIBStore.get_device_by_mac() currently does a full table scan.
+        Add a UNIQUE index on the mac_address column in the Device table migration,
+        then verify the existing tests still pass and that a duplicate MAC insertion
+        raises a NIBResult(success=False, error="CONFLICT") instead of a SQLite exception.
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Where in the codebase
+      description: Exact file paths, class names, and method names. Don't make the contributor hunt.
+      placeholder: |
+        Primary file: pdsno/datastore/sqlite_store.py → NIBStore.upsert_device()
+        Migration:    pdsno/data/migrations/
+        Tests:        tests/test_datastore.py → test_device_insert, test_device_optimistic_locking
+        Relevant doc: docs/nib_spec.md → Device Table schema
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: skill_area
+    attributes:
+      label: What skills does this require?
+      description: Check everything that applies. Be honest — overclaiming skills scares off good contributors.
+      options:
+        - label: Python (general — data classes, typing, basic OOP)
+        - label: Python (SQLite / database operations)
+        - label: Python (networking — sockets, Netmiko, PyEZ, eAPI)
+        - label: Python (async / asyncio / threading)
+        - label: pytest — writing or fixing tests
+        - label: Documentation — Markdown, improving existing docs
+        - label: DevOps — Docker, ContainerLab, GitHub Actions
+        - label: Security — reviewing cryptographic code
+        - label: Architecture / design — no code required
+
+  - type: dropdown
+    id: estimated_effort
+    attributes:
+      label: Estimated effort
+      description: Be honest. Underestimating effort is one of the most common reasons contributors abandon issues.
+      options:
+        - "Small — under 2 hours"
+        - "Medium — half a day (2–4 hours)"
+        - "Large — full day (4–8 hours)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: |
+        List the exact checks a reviewer will run. 
+        This is what appears in the PR description checklist.
+      placeholder: |
+        - [ ] `pytest tests/test_datastore.py -v` passes with no new failures
+        - [ ] Inserting a device with a duplicate MAC returns NIBResult(success=False, error="CONFLICT")
+        - [ ] A raw SQLite duplicate MAC does NOT bubble up as an unhandled exception
+        - [ ] Migration script runs cleanly against a fresh DB (`python -m pdsno.data.init_nib --env dev`)
+    validations:
+      required: true
+
+  - type: textarea
+    id: getting_started
+    attributes:
+      label: Getting started hint
+      description: |
+        Optional but strongly encouraged. One paragraph that tells a new contributor
+        exactly where to start reading. This is the difference between an issue that
+        gets picked up in a day and one that sits for three months.
+      placeholder: |
+        Start by reading the Device Table section in docs/nib_spec.md to understand
+        why MAC is the canonical deduplication key. Then open pdsno/datastore/sqlite_store.py
+        and find the _initialize_schema() method — that's where the table definition lives.
+        The fix is small (one line in the CREATE TABLE statement and one line adding the index)
+        but you'll want to understand why the upsert_device() optimistic locking works the way
+        it does before touching it.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Related issues, design decisions, anything else that helps.
