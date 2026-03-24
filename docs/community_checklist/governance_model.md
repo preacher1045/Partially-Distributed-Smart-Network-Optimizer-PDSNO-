@@ -36,13 +36,13 @@ This project governance model is designed to:
 - High-impact changes: two maintainer approvals are required
 - Security-sensitive changes: coordinate with SECURITY.md process
 
-## Community Vs Enterprise Governance
+## Community vs Enterprise Governance
 
 - Community Edition governance is transparent and repository-first.
 - Enterprise product governance, if introduced, may include internal product,
-	support, and release controls defined by commercial policy.
+  support, and release controls defined by commercial policy.
 - Enterprise decisions must not retroactively weaken existing open-source
-	obligations in this repository.
+  obligations in this repository.
 
 ## Proposal Workflow
 
@@ -58,9 +58,9 @@ Maintainers may request an RFC-style document for high-impact changes.
 ## Disagreements
 
 - Technical disagreements are resolved with reproducible evidence,
-	measurements, and alignment with architecture documents.
+  measurements, and alignment with architecture documents.
 - If consensus is not reached, maintainers make final decisions and record the
-	rationale in issue or PR discussion.
+  rationale in issue or PR discussion.
 
 ## Transparency Requirements
 
@@ -74,6 +74,6 @@ Maintainers may request an RFC-style document for high-impact changes.
 - Maintainer status can be removed for long inactivity or policy violations.
 - Role changes should be announced in repository discussions or release notes.
 
-## Code Of Conduct
+## Code of Conduct
 
 All participation must follow [.github/CODE_OF_CONDUCT.md](../../.github/CODE_OF_CONDUCT.md).

@@ -1,4 +1,4 @@
-# Release And Versioning Policy
+# Release and Versioning Policy
 
 This policy defines release behavior for the Community Edition repository.
 
@@ -55,7 +55,7 @@ Changelog format should follow Keep a Changelog structure.
 - Releases should be created from a clean tagged commit.
 - Release tags should be annotated.
 - Release notes should link to notable issues/PRs and migration guidance when
-	behavior changes.
+  behavior changes.
 
 ## Deprecation Policy
 
@@ -67,5 +67,5 @@ Changelog format should follow Keep a Changelog structure.
 
 - Patch updates should not break documented behavior.
 - Minor updates should keep backward compatibility except for clearly marked
-	experimental areas.
+  experimental areas.
 - Major versions may include breaking changes with migration notes.

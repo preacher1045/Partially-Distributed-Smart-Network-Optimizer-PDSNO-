@@ -31,7 +31,7 @@ Community support is categorized as:
 - Best-effort supported: experimental or less common deployment patterns
 - Unsupported: custom/private enterprise requirements and paid services
 
-## Out Of Scope
+## Out of Scope
 
 - Custom feature implementation for specific organizations
 - Guaranteed compatibility for all vendor or proprietary environments

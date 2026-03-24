@@ -10,19 +10,19 @@ what is out of scope, and what response expectations contributors can rely on.
 
 This policy follows common open-source best practices:
 
-- Public, issue-tracker based support
+- Public, issue-tracker-based support
 - Best-effort (non-SLA) response model
 - Explicit support windows documented in release policy
 
 ## Support Channels
 
 - GitHub issues are the primary support channel.
-- Security issues must follow the process in SECURITY.md and must not be posted
-	publicly.
+- Security issues must follow the process in [SECURITY.md](../../SECURITY.md)
+  and must not be posted publicly.
 - Architecture questions should include context, expected behavior, and current
-	behavior.
+  behavior.
 
-## Scope Of Community Support
+## Scope of Community Support
 
 Community support is best-effort and includes:
 
@@ -59,14 +59,14 @@ These are goals, not SLA commitments:
 
 Issues should include:
 
-- PDSNO version/commit hash
+- PDSNO version or commit hash
 - Environment details (OS, Python version)
 - Reproduction steps
 - Expected and actual behavior
 - Relevant logs or tracebacks
 
-Issues missing core reproduction detail may be labeled needs-info and closed if
-the missing information is not provided.
+Issues missing core reproduction detail may be labeled `needs-info` and closed
+if the missing information is not provided.
 
 ## Priority Model
 
@@ -75,16 +75,16 @@ the missing information is not provided.
 - P2: Major feature degraded with workaround
 - P3: Minor defects, documentation fixes, and enhancements
 
-## Closure And Staleness
+## Closure and Staleness
 
 - Resolved issues are closed after fix or documented decision.
 - Stale issues may be closed after 30 days without requested follow-up.
 - Closed issues can be reopened with new reproducible evidence.
 
-## Relationship To Commercial Support
+## Relationship to Commercial Support
 
 Community support is best-effort and public.
 
-Enterprise/commercial support, if offered, is governed by separate commercial
-agreements and may include private channels, guaranteed response times, and
-SLA-backed commitments that are not part of this policy.
+Enterprise or commercial support, if offered, is governed by separate
+commercial agreements and may include private channels, guaranteed response
+times, and SLA-backed commitments that are not part of this policy.

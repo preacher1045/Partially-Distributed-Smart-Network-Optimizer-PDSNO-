@@ -1,4 +1,4 @@
-# LTS And Backport Policy
+# LTS and Backport Policy
 
 This policy applies to Community Edition branches in the public repository.
 
@@ -56,7 +56,7 @@ For a fix to be backported:
 - Tests covering the bug must accompany the change
 - Cherry-pick conflicts must be resolved without broad refactor
 
-## End Of Support
+## End of Support
 
 When a branch reaches end of support:
 
