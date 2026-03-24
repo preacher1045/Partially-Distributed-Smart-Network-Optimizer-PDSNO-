@@ -1,125 +1,100 @@
----
-title: Contributing to PDSNO
-status: Active
-author: Alexander Adjei
-last_updated: 2026-02-16
----
-
 # Contributing to PDSNO
 
-## Before You Start
+Thank you for your interest in contributing.
 
-Read these three documents before writing any code or submitting a PR:
-1. `docs/PROJECT_OVERVIEW.md` — what PDSNO is and why it exists
-2. `docs/architecture/architecture.md` — the design you are working within
-3. `docs/INDEX.md` — map of all documentation
+This project welcomes code, documentation, tests, design discussions, and bug
+reports. Please read this guide before opening a pull request.
 
-If anything in the architecture is unclear, open an issue and ask before building
-something that may need to be rearchitected.
+## Start Here
 
----
+Read these documents first:
+
+1. `README.md`
+2. `docs/INDEX.md`
+3. `docs/PROJECT_OVERVIEW.md`
+4. `docs/architecture.md`
+5. `docs/contribution-rules.md`
+
+If architecture intent is unclear, open an issue before implementing a large
+change.
 
 ## Development Setup
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/<org>/pdsno.git
-cd pdsno
+# 1) Clone
+git clone https://github.com/AtlasIris/PDSNO.git
+cd PDSNO
 
-# 2. Create a virtual environment
+# 2) Virtual environment
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-# 3. Install dependencies
+# 3) Dependencies
 pip install -r requirements.txt
-pip install -r requirements-dev.txt  # test + lint tools
 
-# 4. Initialize the development NIB
-python -m pdsno.data.init_nib --env dev
+# 4) Initialize local NIB database
+python scripts/init_db.py --db config/pdsno.db
 
-# 5. Run the test suite to confirm everything works
+# 5) Verify tests
 pytest tests/ -v
 ```
 
----
+## Contribution Workflow
 
-## Code Standards
+1. Open or find an issue describing the change.
+2. Create a branch from `main`.
+3. Implement the change with tests and documentation updates.
+4. Run tests locally.
+5. Open a pull request with a clear explanation of behavior changes.
 
-**Python version:** 3.11+. Use type hints on all function signatures.
+Suggested branch naming:
 
-**NIB access:** No controller module may import or instantiate a storage backend
-directly. All NIB access goes through `NIBStore`. If you find yourself writing
-`sqlite3.connect(...)` in a controller, stop — that is wrong.
+- `feature/<short-topic>`
+- `fix/<short-topic>`
+- `docs/<short-topic>`
+- `chore/<short-topic>`
 
-**NIBResult checking:** Every NIBStore method that modifies state returns a
-`NIBResult`. You must check it. Do not assume success.
+## Pull Request Checklist
 
-```python
-# Wrong
-nib.upsert_device(device)
+- Change is scoped and focused.
+- Tests added or updated for behavior changes.
+- `pytest tests/ -v` passes locally.
+- Documentation updated when behavior or interfaces changed.
+- PR description includes: problem, approach, validation, and risk.
 
-# Right
-result = nib.upsert_device(device)
-if not result.success:
-    nib.write_event(Event(...))
-    raise SomeAppropriateError(result.error)
-```
+## Coding Expectations
 
-**Algorithm structure:** All algorithm modules follow `initialize / execute / finalize`.
-See `docs/algorithm_lifecycle.md`.
+- Python 3.11+ compatibility.
+- Prefer type hints for new/changed code.
+- Keep modules cohesive; avoid broad refactors in feature PRs.
+- Do not bypass hierarchy/approval semantics without explicit design discussion.
 
-**Audit first:** Write the NIB audit event before or immediately after the action
-it records. Never let a significant state change happen without an Event Log entry.
+Core architectural constraints:
 
----
+1. State is authoritative in the NIB.
+2. Significant actions must be auditable.
+3. Controller hierarchy enforces governance boundaries.
 
-## Architecture Review Rules
+## Documentation Expectations
 
-Before submitting a PR that touches system design, check these rules
-(from `docs/architecture/contibution-rules.md`):
+If code behavior changes, documentation must change in the same PR.
 
-1. Does your change require a controller to trust its own local memory for a
-   network fact? → Wrong. Use the NIB.
-2. Does your change allow a lower-tier controller to skip a higher-tier approval? → Wrong.
-3. Does your change write to the NIB without writing an Event Log entry? → Wrong.
-4. Does your change introduce a new interface between controllers not in `api_reference.md`? → Add it to the doc first, then implement.
-5. Does your change affect the NIB schema? → Update `nib_spec.md` and write a migration.
+Use these docs as canonical anchors:
 
----
+- Architecture and design: `docs/architecture.md`
+- Communication contracts: `docs/api_reference.md`
+- Data model and NIB behavior: `docs/nib_spec.md`
+- Security model: `docs/security_model.md`
+- Operational behavior: `docs/OPERATIONAL_RUNBOOK.md`
 
-## Branching and PRs
+## Security Reporting
 
-```
-main          — stable, tagged releases only
-dev           — integration branch; all feature branches merge here
-feature/<name> — your work
-fix/<issue>    — bug fixes
-```
+Do not open public issues for security vulnerabilities.
 
-PR requirements:
-- All tests pass (`pytest tests/ -v`)
-- No new linting errors (`ruff check .`)
-- If you changed architecture: updated relevant doc in `docs/`
-- PR description explains *why*, not just *what*
+Follow `SECURITY.md` for responsible disclosure.
 
----
+For general support expectations and issue triage scope, see `SUPPORT.md`.
 
-## Documentation Standards
+## Community Conduct
 
-If you change behaviour, update the doc. The two must stay in sync.
-
-Document file locations:
-- Architecture changes → `docs/architecture/`
-- New message type → `docs/api_reference.md`
-- New use case → `docs/use_cases.md`
-- New NIB table or field → `docs/architecture/nib/nib_spec.md` + migration script
-
-Keep docs in prose with code blocks for pseudocode and schemas. Avoid bullet-point
-walls — a sentence explains reasoning better than a list item.
-
----
-
-## Questions?
-
-Open a GitHub issue tagged `question`. If it touches architecture, tag it
-`architecture-review` and it will be reviewed before any related implementation begins.
+All participation must follow `.github/CODE_OF_CONDUCT.md`.

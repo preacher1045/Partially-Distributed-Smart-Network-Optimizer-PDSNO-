@@ -1,0 +1,63 @@
+name: pdsno-discovery-lab
+
+# NOTE:
+# This topology intentionally uses repository-relative bind paths so it can be
+# committed and shared safely. If your local test setup differs, update only
+# the host-side path (left of ':') in each bind below.
+
+mgmt:
+  network: pdsno-mgmt  # Change if this Docker network name conflicts in your host.
+  ipv4-subnet: 172.20.20.0/24  # Adjust if this subnet overlaps with your local/VPN ranges.
+
+topology:
+
+  nodes:
+
+    pdsno-lc:
+      kind: linux
+      image: python:3.11-slim  # Pin/replace with your preferred Python image if needed.
+      mgmt-ipv4: 172.20.20.10
+      binds:
+        - ../../:/pdsno:rw  # Repo root relative to this file (containerlab/topologies).
+      cmd: sleep infinity
+      env:
+        PYTHONPATH: /pdsno
+
+    frr-1:
+      kind: linux
+      image: frrouting/frr:latest  # Consider pinning a fixed tag for reproducible CI/labs.
+      mgmt-ipv4: 172.20.20.11
+      binds:
+        - ../frr/frr-1/frr.conf:/etc/frr/frr.conf:ro  # Host path is relative to this topology file.
+        - ../frr/frr-1/daemons:/etc/frr/daemons:ro
+        - ../frr/snmpd.conf:/etc/snmp/snmpd.conf:ro
+      env:
+        TINI_SUBREAPER: "1"
+
+    frr-2:
+      kind: linux
+      image: frrouting/frr:latest
+      mgmt-ipv4: 172.20.20.12
+      binds:
+        - ../frr/frr-2/frr.conf:/etc/frr/frr.conf:ro
+        - ../frr/frr-2/daemons:/etc/frr/daemons:ro
+        - ../frr/snmpd.conf:/etc/snmp/snmpd.conf:ro
+      env:
+        TINI_SUBREAPER: "1"
+
+    frr-3:
+      kind: linux
+      image: frrouting/frr:latest
+      mgmt-ipv4: 172.20.20.13
+      binds:
+        - ../frr/frr-3/frr.conf:/etc/frr/frr.conf:ro
+        - ../frr/frr-3/daemons:/etc/frr/daemons:ro
+        - ../frr/snmpd.conf:/etc/snmp/snmpd.conf:ro
+      env:
+        TINI_SUBREAPER: "1"
+
+  links:
+    # Update interface names if you change node kinds/images with different NIC naming.
+    - endpoints: ["pdsno-lc:eth1", "frr-1:eth1"]
+    - endpoints: ["pdsno-lc:eth2", "frr-2:eth1"]
+    - endpoints: ["pdsno-lc:eth3", "frr-3:eth1"]

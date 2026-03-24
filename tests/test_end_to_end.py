@@ -156,10 +156,10 @@ class TestEndToEndWorkflows:
             hostname="test-switch",
             vendor="cisco",
             device_type="switch",
-            status=DeviceStatus.DISCOVERED,
+            status=DeviceStatus.ACTIVE,
             first_seen=datetime.now(timezone.utc),
             last_seen=datetime.now(timezone.utc),
-            managed_by_lc=managed_by,
+            local_controller=managed_by,
             region="zone-A",
             metadata={}
         )
@@ -200,7 +200,7 @@ class TestEndToEndWorkflows:
             status=DeviceStatus.ACTIVE,
             first_seen=datetime.now(timezone.utc),
             last_seen=datetime.now(timezone.utc),
-            managed_by_lc="local_cntl_zone-A_1",
+            local_controller="local_cntl_zone-A_1",
             region="zone-A",
             metadata={}
         )
@@ -358,7 +358,7 @@ class TestDatabaseIntegration:
             status=DeviceStatus.ACTIVE,
             first_seen=datetime.now(timezone.utc),
             last_seen=datetime.now(timezone.utc),
-            managed_by_lc="local_cntl_1",
+            local_controller="local_cntl_1",
             region="zone-A",
             metadata={}
         )
@@ -577,7 +577,7 @@ class TestPerformanceIntegration:
                 status=DeviceStatus.ACTIVE,
                 first_seen=datetime.now(timezone.utc),
                 last_seen=datetime.now(timezone.utc),
-                managed_by_lc="local_cntl_1",
+                local_controller="local_cntl_1",
                 region="zone-A",
                 metadata={}
             )

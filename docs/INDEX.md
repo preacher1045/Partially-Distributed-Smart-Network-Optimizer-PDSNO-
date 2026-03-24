@@ -1,110 +1,106 @@
----
-title: Documentation Index
-status: Active — Updated as docs are added
-last_updated: 2026-02-14
----
+# PDSNO Documentation Index
 
-# PDSNO — Documentation Index
+This is the canonical map for PDSNO documentation.
 
-This index maps every document in the project to its purpose and recommended reading order. Start here if you are new to the project.
+Use this file as the source of truth for:
 
----
+- What to read first
+- Which document is authoritative for each topic
+- Which files are archival and not part of the public-facing documentation surface
 
-## Recommended Reading Order
+## Reading Paths
 
-If you are new to PDSNO, read documents in this order:
+### Path A: New Contributors (Fast Onboarding)
 
-1. `README.md` — Project summary, what problem it solves, current status
-2. `docs/PROJECT_OVERVIEW.md` — Architecture foundations, design decisions, interface naming
-3. `docs/architecture/architecture.md` — System layers, controller matrix, key decisions
-4. `docs/algorithm_lifecycle.md` — The core pattern every module follows
-5. `docs/architecture/nib/nib_spec.md` — The data layer everything depends on
-6. `docs/architecture/communication_model.md` — How controllers communicate
-7. `docs/architecture/verification/controller_validation_sequence.md` — How controllers join the network
-8. `docs/architecture/approval_logic/config_approval_logic.md` — How configuration changes are governed
-9. `docs/architecture/device_discovery/device_discovery_sequence.md` — How devices are discovered
-10. `docs/security_model.md` — Security properties and threat summary
-11. `docs/use_cases.md` — Concrete scenarios end-to-end
-12. `ROADMAP_AND_TODO.md` — What is being built next and why
+1. `README.md`
+2. `CONTRIBUTING.md`
+3. `docs/PROJECT_OVERVIEW.md`
+4. `docs/architecture.md`
+5. `docs/contribution-rules.md`
+6. `docs/ROADMAP_AND_TODO.md`
 
----
+### Path B: Architecture Deep Dive
 
-## Document Map
+1. `docs/PROJECT_OVERVIEW.md`
+2. `docs/architecture.md`
+3. `docs/controller_hierarchy.md`
+4. `docs/communication_model.md`
+5. `docs/dataflow.md`
+6. `docs/nib_spec.md`
+7. `docs/nib_consistency.md`
+8. `docs/algorithm_lifecycle.md`
+9. `docs/api_reference.md`
 
-### Root Level
+### Path C: Security And Governance
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `README.md` | Project introduction, use cases, architecture summary | ✅ Active |
-| `ROADMAP_AND_TODO.md` | Master development roadmap and task tracker | ✅ Active |
-| `CONTRIBUTING.md` | How to contribute, coding standards, PR process | ✅ Active |
+1. `SECURITY.md`
+2. `docs/security_model.md`
+3. `docs/threat_model_and_mitigation.md`
+4. `docs/community_checklist/support_policy.md`
+5. `docs/community_checklist/release_and_versioning_policy.md`
+6. `docs/community_checklist/lts_and_backport_policy.md`
+7. `docs/community_checklist/governance_model.md`
 
-### `/docs`
+### Path D: Operations And Deployment
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `PROJECT_OVERVIEW.md` | Full architectural overview with design rationale | ✅ Active |
-| `algorithm_lifecycle.md` | Algorithm base class pattern and implementation guide | ✅ Active |
-| `roadmap.md` | High-level roadmap summary (see ROADMAP_AND_TODO.md for full version) | ✅ Active |
-| `architecture.md` | System architecture — layers, controller matrix, key decisions | ✅ Active |
-| `security_model.md` | Security properties, trust boundaries, threat summary by component | ✅ Active |
-| `dataflow.md` | End-to-end data flow for discovery, approval, and policy distribution | ✅ Active |
-| `api_reference.md` | All inter-controller message types, payloads, NBI endpoints | ✅ Active |
-| `deployment_guide.md` | Dev setup, context_runtime.yaml reference, scaling guidelines | ✅ Active |
-| `use_cases.md` | 7 scenarios traced step-by-step — discovery, approval, emergency, validation | ✅ Active |
-| `contibution-rules.md` | Architecture review rules for contributors | ✅ Active |
+1. `QUICK_START.md`
+2. `docs/deployment_guide.md`
+3. `docs/OPERATIONAL_RUNBOOK.md`
+4. `deployment/helm/README.md`
+5. `examples/README.md`
 
-### `/docs/architecture`
+## Canonical Document Ownership
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `communication_model.md` | Protocol assignment (REST/MQTT), delta-sync principle, message envelope, auth, timeouts | ✅ Active |
-| `controller_hierarchy.md` | Controller tiers, offline behaviour, naming convention, scaling guidelines | ✅ Active |
+| Topic | Canonical File |
+|------|-----------------|
+| Project overview and intent | `README.md` |
+| Contribution workflow and PR expectations | `CONTRIBUTING.md` |
+| System-level architecture | `docs/architecture.md` |
+| Hierarchy and governance boundaries | `docs/controller_hierarchy.md` |
+| Communication contracts | `docs/communication_model.md`, `docs/api_reference.md` |
+| NIB model and consistency | `docs/nib_spec.md`, `docs/nib_consistency.md` |
+| Security model | `docs/security_model.md`, `docs/threat_model_and_mitigation.md` |
+| Deployment and operations | `docs/deployment_guide.md`, `docs/OPERATIONAL_RUNBOOK.md` |
+| Use-case narratives | `docs/use_cases.md` |
+| Roadmap and priorities | `docs/ROADMAP_AND_TODO.md`, `docs/roadmap.md` |
 
-### `/docs/architecture/verification`
+## Architecture Submodule Documents
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `README.md` | Module overview for the verification component | ✅ Active |
-| `controller_validation_sequence.md` | Full verification flow design, pseudocode, and error states | ✅ Active |
-| `controller_verification_sequence.drawio` | Sequence diagram source file | ✅ Active |
-| `key_management.md` | Key generation, distribution, rotation, revocation (HMAC→Ed25519 path) | ⚪ Pending |
+| File | Purpose |
+|------|---------|
+| `docs/architecture/approval_logic/config_approval_logic.md` | Approval logic sequence and decision flow |
+| `docs/architecture/device_discovery/device_discovery_sequence.md` | Discovery sequence and interaction flow |
+| `docs/architecture/policy_propagation/policy_propagation_doc.md` | Policy propagation model |
+| `docs/architecture/verification/README.md` | Verification module entry point |
+| `docs/architecture/verification/controller_validation_sequence.md` | Controller validation protocol details |
 
-### `/docs/architecture/approval_logic`
+## Public Documentation Scope
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `config_approval_doc.md` | Canonical approval logic specification (JSON schemas, timeouts, retry logic) | ✅ Active |
-| `config_approval_logic.md` | Pseudocode / algorithm reference for the approval flow | ✅ Active |
-| `config_approval_sequence.drawio` | Sequence diagram source file | ✅ Active |
+The following locations are considered public-facing and should remain clean,
+accurate, and link-stable:
 
-### `/docs/architecture/policy_propagation`
+- repository root: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `QUICK_START.md`
+- repository root: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `QUICK_START.md`
+- `.github/CODE_OF_CONDUCT.md` for community behavior standards
+- `docs/` (excluding `docs/not_for_github/`)
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `policy_propagation_doc.md` | Design summary of the configuration approval system | ✅ Active |
-| `threat_model_and_mitigation.md` | Security threats and design-level mitigations | ✅ Active |
+## Archived Internal Files
 
-### `/docs/architecture/nib`
+Historical status notes, phase reports, temporary session outputs, and internal
+working notes are intentionally moved under:
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `nib_spec.md` | NIB schema, two-tier data classification, adaptive consistency model, typed entity hierarchy, access interface, write protocol, retention | ✅ Active — Research updated |
-| `nib_consistency.md` | Deep-dive: optimistic locking (PoC), adaptive consistency target (Phase 6+) | ✅ Active |
+- `docs/not_for_github/root_archive/`
+- `docs/not_for_github/docs_archive/`
 
-### `/docs/architecture/device_discovery`
+These files are preserved for traceability but are not part of the official
+external documentation surface.
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `device_discovery_sequence.md` | Discovery flow design and NIB integration | 🟡 Needs Rewrite |
-| `device_discovery_sequence.drawio` | Sequence diagram source file | ✅ Active |
+## Documentation Maintenance Standard
 
----
+When updating documentation:
 
-## Status Key
-
-| Symbol | Meaning |
-|--------|---------|
-| ✅ Active | Current, reviewed, reliable |
-| 🟡 Needs Rewrite | Exists but needs significant cleanup or expansion |
-| ⚪ Pending | Does not yet exist — tracked in ROADMAP_AND_TODO.md |
+1. Update this index if navigation or ownership changed.
+2. Keep file names stable unless a rename is necessary.
+3. Prefer one canonical document per topic; avoid duplicate specifications.
+4. Move temporary/integration notes to `docs/not_for_github/`.
+5. Keep links relative and valid in GitHub rendering.

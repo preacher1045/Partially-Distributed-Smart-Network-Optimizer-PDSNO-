@@ -49,7 +49,7 @@ def lc(temp_dir, nib_store, message_bus):
     return LocalController(
         controller_id="local_cntl_test_001",
         region="zone-A",
-        subnet="192.168.1.0/24",
+        subnet="192.168.1.0/24",  # simulate=True passed via run_algorithm context
         context_manager=context_mgr,
         nib_store=nib_store,
         message_bus=message_bus
@@ -62,7 +62,7 @@ class TestARPScanner:
     def test_initialization(self):
         """Test scanner initialization"""
         scanner = ARPScanner()
-        scanner.initialize({'subnet': '192.168.1.0/24'})
+        scanner.initialize({'subnet': '192.168.1.0/24', 'simulate': True})
         
         assert scanner._initialized is True
         assert scanner.subnet is not None
@@ -85,7 +85,7 @@ class TestARPScanner:
     def test_execute(self):
         """Test ARP scan execution"""
         scanner = ARPScanner()
-        scanner.initialize({'subnet': '192.168.1.0/28'})  # Small subnet for fast test
+        scanner.initialize({'subnet': '192.168.1.0/28', 'simulate': True})  # Small subnet for fast test
         
         devices = scanner.execute()
         
@@ -97,7 +97,7 @@ class TestARPScanner:
     def test_finalize(self):
         """Test finalize returns proper result"""
         scanner = ARPScanner()
-        scanner.initialize({'subnet': '192.168.1.0/28'})
+        scanner.initialize({'subnet': '192.168.1.0/28', 'simulate': True})
         scanner.execute()
         
         result = scanner.finalize()
@@ -142,7 +142,10 @@ class TestICMPScanner:
     def test_finalize(self):
         """Test finalize returns proper result"""
         scanner = ICMPScanner()
-        scanner.initialize({'ip_list': ['127.0.0.1']})
+        # scanner.initialize({'ip_list': ['127.0.0.1']})
+        scanner.initialize({'subnet': '192.168.1.0/28'})
+        scanner.execute()
+        scanner.initialize({'subnet': '192.168.1.0/28', 'simulate': True})
         scanner.execute()
         
         result = scanner.finalize()
@@ -316,7 +319,7 @@ class TestRegionalControllerDiscoveryHandler:
             ip_address="192.168.1.10",
             mac_address="aa:bb:cc:dd:ee:01",
             status=DeviceStatus.ACTIVE,
-            managed_by_lc="lc_1"
+            local_controller="lc_1"
         )
         nib_store.upsert_device(device1)
         

@@ -194,7 +194,7 @@ The NIB stores:
 - Audit and event logs
 - Controller synchronization state
 
-The NIB consistency model and schema are defined in [`docs/architecture/nib/nib_spec.md`](architecture/nib/nib_spec.md).
+The NIB consistency model and schema are defined in [`docs/nib_spec.md`](nib_spec.md).
 
 ---
 

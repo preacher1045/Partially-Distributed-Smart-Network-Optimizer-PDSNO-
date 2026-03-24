@@ -52,8 +52,11 @@ class DynamicInventory:
             }
         }
         
-        # Get all active devices from NIB
-        devices = self.nib.get_all_devices(status='active')
+        # Get all devices, then keep only active for inventory output.
+        devices = [
+            d for d in self.nib.get_all_devices()
+            if getattr(d, 'status', None) and d.status.value == 'active'
+        ]
         
         # Group by vendor
         vendors = {}
@@ -73,7 +76,7 @@ class DynamicInventory:
                 'vendor': device.vendor,
                 'device_type': device.device_type,
                 'region': device.region,
-                'managed_by': device.managed_by_lc
+                'managed_by': device.local_controller
             }
             
             # Set connection type based on vendor

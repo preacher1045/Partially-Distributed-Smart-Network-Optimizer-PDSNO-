@@ -4,7 +4,7 @@ status: Active
 author: Alexander Adjei
 last_updated: 2026-02-14
 component: Communication Layer
-depends_on: PROJECT_OVERVIEW.md, docs/architecture/nib/nib_spec.md
+depends_on: PROJECT_OVERVIEW.md, docs/nib_spec.md
 research_basis: >
   ONF TR-521 — standardized interface naming (NBI, SBI, East/West).
   Alsheikh et al. (ARO 2024) — pub/sub recommendation over polling for state updates.

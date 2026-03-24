@@ -76,8 +76,8 @@ Each task has a status tag:
 
 - `[ ]` **Standardize document headers** — Every `.md` file should have consistent frontmatter: `title`, `status`, `author`, `last_updated`, `component`, `depends_on`
 - `[ ]` **Add a `depends_on` field to all docs** — Makes it explicit which documents a reader must understand before reading a given doc
-- `[ ]` **Create a documentation index** — `docs/INDEX.md` that maps every document to its purpose and reading order for new contributors
-- `[ ]` **Audit all cross-references** — Some docs reference files that don't exist or have moved (e.g., `README.md` in verification module links to `../../docs/controller_verification.md` which doesn't match actual file paths)
+- `[x]` **Create a documentation index** — `docs/INDEX.md` now maps canonical docs, reading paths, and archive boundaries.
+- `[x]` **Audit all cross-references** — Corrected key stale links and path mismatches in onboarding and architecture docs.
 - `[ ]` **Resolve "partially decentralized" naming consistently** — Either rename the project or update all docs to accurately explain what "partial" means in practice
 
 ---

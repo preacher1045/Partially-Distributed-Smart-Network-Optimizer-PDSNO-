@@ -1,29 +1,29 @@
-# 🔐 Security Policy
+# Security Policy
 
 Thank you for helping keep **PDSNO (Partially Distributed Smart Network Orchestrator)** and its users secure.
 
 ---
 
-## 📅 Supported Versions
+## Supported Versions
 
 Security updates are applied to the **main** development branch and any active release branches.
 
 | Version | Supported |
 |----------|------------|
-| main (development) | ✅ Active |
-| pre-release / beta | ⚠️ Limited |
-| older branches | ❌ Not supported |
+| main (development) | Active |
+| pre-release / beta | Limited |
+| older branches | Not supported |
 
 ---
 
-## 🛠 Reporting a Vulnerability
+## Reporting a Vulnerability
 
 If you discover a security vulnerability, please **DO NOT** open a public GitHub issue.
 
 Instead, report it confidentially via:
 
-📧 **security@atlasiris.org** (placeholder — will update with future contact)  
-or use GitHub’s private reporting form (when enabled).
+**security@atlasiris.org**  
+or use GitHub private vulnerability reporting (when enabled for this repository).
 
 Please include:
 
@@ -40,7 +40,7 @@ We will:
 
 ---
 
-## 🔒 Security Practices
+## Security Practices
 
 PDSNO is designed with **distributed control, isolation, and data minimization** in mind.  
 To maintain security integrity:
@@ -52,7 +52,7 @@ To maintain security integrity:
 
 ---
 
-## 🌍 Long-Term Vision
+## Long-Term Vision
 
 As the project matures, we plan to integrate:
 
@@ -63,7 +63,7 @@ As the project matures, we plan to integrate:
 
 ---
 
-## ⚖️ Responsible Disclosure
+## Responsible Disclosure
 
 We encourage ethical research and responsible reporting.  
 Please give us time to patch before publicly disclosing vulnerabilities.

@@ -153,7 +153,7 @@ PDSNO is actively looking for contributors across several domains. You don't nee
 - Set up ContainerLab integration for CI testing
 
 **Python / distributed systems developers**
-- Fix the Phase 7 state machine integration (tracked in issue [link])
+- Fix the Phase 7 state machine integration (see GitHub issues)
 - Improve NIB consistency under concurrent writes
 - Build the REST API NBI layer for external tool integration
 - Write integration tests against ContainerLab topologies
@@ -179,13 +179,18 @@ cat docs/INDEX.md
 
 # Then set up your environment
 pip install -r requirements.txt
-pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
 
 Full contributing guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-Open questions and good first issues: [GitHub Issues](../../issues)
+Open questions and good first issues: [GitHub Issues](https://github.com/AtlasIris/PDSNO/issues)
+
+Community standards and support:
+
+- Code of Conduct: [.github/CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md)
+- Security policy: [SECURITY.md](SECURITY.md)
+- Support channels: [SUPPORT.md](SUPPORT.md)
 
 ### Architecture Principles (Read Before Contributing)
 
@@ -213,7 +218,13 @@ If your contribution violates any of these, it will need to be rethought regardl
 | [docs/api_reference.md](docs/api_reference.md) | All inter-controller message types and payloads |
 | [docs/use_cases.md](docs/use_cases.md) | Seven end-to-end scenarios traced through the system |
 | [docs/ROADMAP_AND_TODO.md](docs/ROADMAP_AND_TODO.md) | Full phased development plan with open questions |
+| [docs/DOCS_PORTAL_MAP.md](docs/DOCS_PORTAL_MAP.md) | Deep documentation-site navigation blueprint |
 | [docs/INDEX.md](docs/INDEX.md) | Complete documentation map and reading order |
+
+---
+
+Historical and internal working documents are preserved under
+`docs/not_for_github/` to keep the repository root and public docs clean.
 
 ---
 

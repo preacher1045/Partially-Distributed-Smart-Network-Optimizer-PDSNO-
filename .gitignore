@@ -121,6 +121,8 @@ config.local.yml
 context_runtime.yaml
 example_pdsno.db
 sim_phase4/
+sim_phase5/
+sim_phase6a/
 config/example_context.yaml
 config/example_context.yaml.lock
 
@@ -138,5 +140,4 @@ docker-compose.override.yml
 *.pkl
 *.pickle
 
-sim_phase5/
-sim_phase6a/
+docs/not_for_github/

@@ -381,8 +381,11 @@ class GlobalController(BaseController):
             event = Event(
                 event_id=f"event-{uuid.uuid4().hex[:12]}",
                 event_type="CONTROLLER_VALIDATED",
-                controller_id=self.controller_id,
+                actor=self.controller_id,
                 timestamp=issued_at,
+                action="Assigned controller identity",
+                subject=assigned_id,
+                decision="APPROVED",
                 details={
                     "assigned_id": assigned_id,
                     "role": controller_type,

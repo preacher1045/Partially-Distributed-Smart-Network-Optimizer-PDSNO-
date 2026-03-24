@@ -19,7 +19,7 @@ To prevent unauthorized or rogue controllers from joining the orchestration netw
 ## Related Documentation
 Detailed design and pseudocode can be found here:
 
- [**Controller Verification System**](../../docs/controller_verification.md)
+ [**Controller Validation Sequence**](controller_validation_sequence.md)
 
 
 

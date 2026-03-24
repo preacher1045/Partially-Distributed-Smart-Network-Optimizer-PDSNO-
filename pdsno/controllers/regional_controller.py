@@ -441,11 +441,11 @@ class RegionalController(BaseController):
             # Query NIB for existing device with this MAC
             existing_device = self.nib_store.get_device_by_mac(mac)
             
-            if existing_device and existing_device.managed_by_lc != reporting_lc_id:
-                collisions[mac] = existing_device.managed_by_lc
+            if existing_device and existing_device.local_controller != reporting_lc_id:
+                collisions[mac] = existing_device.local_controller
                 self.logger.warning(
                     f"MAC collision: {mac} reported by {reporting_lc_id} "
-                    f"but already managed by {existing_device.managed_by_lc}"
+                    f"but already managed by {existing_device.local_controller}"
                 )
         
         return collisions

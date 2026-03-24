@@ -265,7 +265,7 @@ class LocalController(BaseController):
                 device_type=dev_dict.get('model'),
                 status=DeviceStatus.ACTIVE if dev_dict.get('reachable') else DeviceStatus.QUARANTINED,
                 last_seen=datetime.fromisoformat(dev_dict['last_seen']),
-                managed_by_lc=self.controller_id,
+                local_controller=self.controller_id,
                 region=self.region,
                 metadata={
                     'rtt_ms': dev_dict.get('rtt_ms'),

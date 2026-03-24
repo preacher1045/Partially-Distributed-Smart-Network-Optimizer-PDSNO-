@@ -29,7 +29,7 @@ def test_device_insert(nib_store):
         ip_address="192.168.1.100",
         mac_address="AA:BB:CC:DD:EE:FF",
         hostname="test-device",
-        status=DeviceStatus.DISCOVERED
+        status=DeviceStatus.ACTIVE
     )
     
     result = nib_store.upsert_device(device)
@@ -62,7 +62,7 @@ def test_device_optimistic_locking(nib_store):
         ip_address="192.168.1.102",
         mac_address="AA:11:22:33:44:55",
         hostname="lock-test",
-        status=DeviceStatus.DISCOVERED
+        status=DeviceStatus.ACTIVE
     )
     
     # Insert device
@@ -89,8 +89,10 @@ def test_event_log_write(nib_store):
     event = Event(
         event_id="",
         event_type="device_discovered",
-        controller_id="test_controller",
+        actor="test_controller",
         timestamp=datetime.now(timezone.utc),
+        action="device discovered",
+        subject="dev-001",
         details={"device_id": "dev-001", "ip": "192.168.1.1"}
     )
     
@@ -104,7 +106,7 @@ def test_lock_acquire_and_release(nib_store):
     # Acquire lock
     result = nib_store.acquire_lock(
         subject_id="device-001",
-        lock_type=LockType.CONFIG_APPROVAL,
+        lock_type=LockType.CONFIG_LOCK,
         held_by="controller-1",
         ttl_seconds=300
     )
@@ -112,14 +114,14 @@ def test_lock_acquire_and_release(nib_store):
     lock_id = result.data
     
     # Check lock exists
-    lock = nib_store.check_lock("device-001", LockType.CONFIG_APPROVAL)
+    lock = nib_store.check_lock("device-001", LockType.CONFIG_LOCK)
     assert lock is not None
     assert lock.held_by == "controller-1"
     
     # Try to acquire again (should fail)
     result2 = nib_store.acquire_lock(
         subject_id="device-001",
-        lock_type=LockType.CONFIG_APPROVAL,
+        lock_type=LockType.CONFIG_LOCK,
         held_by="controller-2",
         ttl_seconds=300
     )
@@ -130,5 +132,5 @@ def test_lock_acquire_and_release(nib_store):
     assert release_result.success
     
     # Lock should be gone
-    lock_after = nib_store.check_lock("device-001", LockType.CONFIG_APPROVAL)
+    lock_after = nib_store.check_lock("device-001", LockType.CONFIG_LOCK)
     assert lock_after is None
