@@ -1,0 +1,151 @@
+# PDSNO Distributed Lab — ContainerLab topology
+#
+# Tests the full controller hierarchy as genuinely separate processes
+# communicating over a real network.
+#
+# Key change from v1: no pip install inside containers.
+# The host venv site-packages are mounted read-only at the standard
+# Python path inside the container. Startup is immediate.
+#
+# Topology:
+#   172.20.20.5  pdsno-gc    GlobalController   REST :8001
+#   172.20.20.6  pdsno-rc    RegionalController REST :8002
+#   172.20.20.7  pdsno-lc    LocalController    (runs discovery)
+#   172.20.20.11 frr-spine   Managed device
+#   172.20.20.12 frr-leaf-1  Managed device
+#   172.20.20.13 frr-leaf-2  Managed device
+#   172.20.20.14 frr-leaf-4  Managed device
+#
+# Usage:
+#   cd ~/PDSNO
+#   mkdir -p sim_distributed
+#   sudo containerlab deploy -t containerlab/topologies/pdsno-distributed-lab.yml
+#   sudo containerlab destroy -t containerlab/topologies/pdsno-distributed-lab.yml --cleanup
+
+name: pdsno-distributed-lab
+
+mgmt:
+  network: pdsno-dist-mgmt
+  ipv4-subnet: 172.20.20.0/24
+
+topology:
+
+  nodes:
+
+    # ── PDSNO Controllers ────────────────────────────────────────────────────
+    #
+    # python:3.10-slim matches the host Python version exactly.
+    #
+    # Two bind mounts per controller:
+    #   /pdsno        — the project code (read-write for NIB file)
+    #   /usr/local/lib/python3.10/site-packages  — host venv packages (read-only)
+    #
+    # No pip install needed. Containers start in under 5 seconds.
+
+    pdsno-gc:
+      kind: linux
+      image: python:3.10-slim
+      mgmt-ipv4: 172.20.20.5
+      binds:
+        - /home/schoolboy/PDSNO:/pdsno:rw
+        - /home/schoolboy/PDSNO/.venv/lib/python3.10/site-packages:/usr/local/lib/python3.10/site-packages:ro
+      env:
+        PYTHONPATH: /pdsno
+        PDSNO_GC_ID: global_cntl_1
+        PDSNO_DB_PATH: /pdsno/sim_distributed/pdsno.db
+        PDSNO_CONTEXT_PATH: /pdsno/sim_distributed/gc_context.yaml
+        PDSNO_REST_PORT: "8001"
+      cmd: bash -c "cd /pdsno && python examples/gc_process_distributed.py"
+
+    pdsno-rc:
+      kind: linux
+      image: python:3.10-slim
+      mgmt-ipv4: 172.20.20.6
+      binds:
+        - /home/schoolboy/PDSNO:/pdsno:rw
+        - /home/schoolboy/PDSNO/.venv/lib/python3.10/site-packages:/usr/local/lib/python3.10/site-packages:ro
+      env:
+        PYTHONPATH: /pdsno
+        PDSNO_DB_PATH: /pdsno/sim_distributed/pdsno.db
+        PDSNO_CONTEXT_PATH: /pdsno/sim_distributed/rc_context.yaml
+        PDSNO_GC_URL: http://172.20.20.5:8001
+        PDSNO_GC_ID: global_cntl_1
+        PDSNO_REGION: zone-A
+        PDSNO_RC_TEMP_ID: temp-rc-zone-a
+        PDSNO_REST_PORT: "8002"
+      cmd: bash -c "cd /pdsno && python examples/rc_process_distributed.py"
+
+    pdsno-lc:
+      kind: linux
+      image: pdsno-lc:ping
+      mgmt-ipv4: 172.20.20.7
+      binds:
+        - /home/schoolboy/PDSNO:/pdsno:rw
+        - /home/schoolboy/PDSNO/.venv/lib/python3.10/site-packages:/usr/local/lib/python3.10/site-packages:ro
+      env:
+        PYTHONPATH: /pdsno
+        PDSNO_DB_PATH: /pdsno/sim_distributed/pdsno.db
+        PDSNO_CONTEXT_PATH: /pdsno/sim_distributed/lc_context.yaml
+        PDSNO_RC_URL: http://172.20.20.6:8002
+        PDSNO_RC_ID: regional_cntl_zone-A_1
+        PDSNO_LC_ID: local_cntl_zone-a_001
+        PDSNO_SUBNET: 172.20.20.0/24
+        PDSNO_REGION: zone-A
+        PDSNO_DISCOVERY_INTERVAL: "30"
+      cmd: bash -c "cd /pdsno && python examples/lc_process.py"
+
+    # ── Managed Network Devices ───────────────────────────────────────────────
+
+    frr-spine:
+      kind: linux
+      image: frrouting/frr:latest
+      mgmt-ipv4: 172.20.20.11
+      binds:
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-1/frr.conf:/etc/frr/frr.conf:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-1/daemons:/etc/frr/daemons:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/snmpd.conf:/etc/snmp/snmpd.conf:ro
+      exec:
+        - bash -lc "command -v snmpd >/dev/null || (command -v apt-get >/dev/null && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y snmpd) || (command -v apk >/dev/null && apk add --no-cache net-snmp) || (command -v dnf >/dev/null && dnf install -y net-snmp) || (command -v yum >/dev/null && yum install -y net-snmp) || true"
+        - bash -lc "if command -v snmpd >/dev/null; then snmpd -f -Lo -C -c /etc/snmp/snmpd.conf & else echo 'snmpd not available; skipping SNMP daemon start'; fi"
+
+    frr-leaf-1:
+      kind: linux
+      image: frrouting/frr:latest
+      mgmt-ipv4: 172.20.20.12
+      binds:
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-2/frr.conf:/etc/frr/frr.conf:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-2/daemons:/etc/frr/daemons:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/snmpd.conf:/etc/snmp/snmpd.conf:ro
+      exec:
+        - bash -lc "command -v snmpd >/dev/null || (command -v apt-get >/dev/null && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y snmpd) || (command -v apk >/dev/null && apk add --no-cache net-snmp) || (command -v dnf >/dev/null && dnf install -y net-snmp) || (command -v yum >/dev/null && yum install -y net-snmp) || true"
+        - bash -lc "if command -v snmpd >/dev/null; then snmpd -f -Lo -C -c /etc/snmp/snmpd.conf & else echo 'snmpd not available; skipping SNMP daemon start'; fi"
+
+    frr-leaf-2:
+      kind: linux
+      image: frrouting/frr:latest
+      mgmt-ipv4: 172.20.20.13
+      binds:
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-3/frr.conf:/etc/frr/frr.conf:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-3/daemons:/etc/frr/daemons:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/snmpd.conf:/etc/snmp/snmpd.conf:ro
+      exec:
+        - bash -lc "command -v snmpd >/dev/null || (command -v apt-get >/dev/null && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y snmpd) || (command -v apk >/dev/null && apk add --no-cache net-snmp) || (command -v dnf >/dev/null && dnf install -y net-snmp) || (command -v yum >/dev/null && yum install -y net-snmp) || true"
+        - bash -lc "if command -v snmpd >/dev/null; then snmpd -f -Lo -C -c /etc/snmp/snmpd.conf & else echo 'snmpd not available; skipping SNMP daemon start'; fi"
+
+    frr-leaf-4:
+      kind: linux
+      image: frrouting/frr:latest
+      mgmt-ipv4: 172.20.20.14
+      binds:
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-4/frr.conf:/etc/frr/frr.conf:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-4/daemon:/etc/frr/daemons:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/snmpd.conf:/etc/snmp/snmpd.conf:ro
+      exec:
+        - bash -lc "command -v snmpd >/dev/null || (command -v apt-get >/dev/null && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y snmpd) || (command -v apk >/dev/null && apk add --no-cache net-snmp) || (command -v dnf >/dev/null && dnf install -y net-snmp) || (command -v yum >/dev/null && yum install -y net-snmp) || true"
+        - bash -lc "if command -v snmpd >/dev/null; then snmpd -f -Lo -C -c /etc/snmp/snmpd.conf & else echo 'snmpd not available; skipping SNMP daemon start'; fi"
+
+  links:
+    - endpoints: ["pdsno-lc:eth1", "frr-spine:eth1"]
+    - endpoints: ["pdsno-lc:eth2", "frr-leaf-1:eth1"]
+    - endpoints: ["pdsno-lc:eth3", "frr-leaf-2:eth1"]
+    - endpoints: ["pdsno-lc:eth4", "frr-leaf-4:eth1"]

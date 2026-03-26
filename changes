@@ -1,0 +1,164 @@
+PDSNO DOCUMENTATION CHANGES SUMMARY
+Generated: 2026-03-26
+
+Purpose
+- This file consolidates major documentation and structure changes so another clone
+  (including WSL) can be synchronized quickly.
+
+============================================================
+1) ROOT-LEVEL DOCUMENTATION SURFACE CLEANUP
+============================================================
+
+Root now intentionally keeps core open-source entry docs:
+- README.md
+- CONTRIBUTING.md
+- SECURITY.md
+- SUPPORT.md
+- QUICK_START.md
+- LICENSE
+
+Non-essential/internal historical markdown files were moved out of root into:
+- docs/not_for_github/root_archive/
+
+Moved from root -> docs/not_for_github/root_archive/:
+- DEVELOPMENT_HISTORY.md
+- DISCOVERY_SIMULATION_REPORT.md
+- FILES_INTEGRATION_STATUS.md
+- FINAL_SESSION_SUMMARY.md
+- GAP_ANALYSIS_AND_MISSING_COMPONENTS.md
+- INTEGRATION_GUIDE.md
+- PHASE_6C_INTEGRATION_COMPLETE.md
+- Pre-Commit_Review_Checklist.md
+- Security integration guide.md
+- TEST_RESULTS.md
+- UPDATE_SUMMARY.md
+- VERIFICATION.md
+
+============================================================
+2) DOCS FOLDER CLEANUP + ARCHIVE BOUNDARY
+============================================================
+
+Created archive boundary:
+- docs/not_for_github/
+- docs/not_for_github/README.md
+- docs/not_for_github/root_archive/
+- docs/not_for_github/docs_archive/
+
+Moved internal/phase report docs from docs/ -> docs/not_for_github/docs_archive/:
+- MASTER_REFERENCE.md
+- PHASE6A_INTEGRATION_GUIDE.md
+- PHASE6B_INTEGRATION_GUIDE.md
+- PHASE_6D_INTEGRATION_COMPLETE.md
+- PHASE_6_CODE_IMPORT.md
+- PHASE_6_COMPLETE_REPORT.md
+- PHASE_7_TEST_AND_SIMULATION_RESULTS.md
+
+============================================================
+3) CANONICAL DOCUMENTATION NAVIGATION
+============================================================
+
+Rewrote docs index to be canonical and contributor-friendly:
+- docs/INDEX.md
+
+Key additions in docs/INDEX.md:
+- Reading paths by audience (new contributors, architecture, security/governance, ops)
+- Canonical ownership table by topic
+- Explicit public-docs scope vs archived-docs scope
+- Maintenance rules for avoiding doc duplication
+
+Added documentation-portal blueprint for deep docs site generation:
+- docs/DOCS_PORTAL_MAP.md
+
+============================================================
+4) README / CONTRIBUTING / SUPPORT ALIGNMENT
+============================================================
+
+README.md updates:
+- Fixed issue tracker URL usage
+- Added explicit links for community-health docs:
+  - .github/CODE_OF_CONDUCT.md
+  - SECURITY.md
+  - SUPPORT.md
+- Added docs portal map reference:
+  - docs/DOCS_PORTAL_MAP.md
+- Removed placeholder issue wording in contributor section
+
+CONTRIBUTING.md updates:
+- Rewritten to a clean open-source contribution workflow
+- Setup instructions aligned with actual repo paths/commands
+- Added pointer to SUPPORT.md for support scope/expectations
+- Updated architecture-rules reference to renamed file (see Section 6)
+
+SUPPORT.md added and standardized:
+- Created root SUPPORT.md
+- Included issue channel, security reporting boundary, issue quality checklist
+- Linked support policy document under docs/community_checklist/
+
+============================================================
+5) SECURITY + COMMUNITY POLICY STYLE NORMALIZATION
+============================================================
+
+SECURITY.md normalization:
+- Removed emoji-heavy headings and markers
+- Kept policy meaning unchanged
+- Preserved reporting flow and supported versions content
+
+Community checklist docs style normalization:
+- docs/community_checklist/support_policy.md
+- docs/community_checklist/release_and_versioning_policy.md
+- docs/community_checklist/lts_and_backport_policy.md
+- docs/community_checklist/community_support_scope.md
+- docs/community_checklist/governance_model.md
+
+Normalization applied:
+- Heading capitalization consistency
+- Indentation cleanup (tab -> spaces)
+- Link consistency improvements
+- Minor editorial polish without policy meaning changes
+
+============================================================
+6) FILE RENAME + CROSS-REFERENCE FIXES
+============================================================
+
+Renamed file for spelling correctness:
+- docs/contibution-rules.md -> docs/contribution-rules.md
+
+Updated references to match rename:
+- CONTRIBUTING.md
+- docs/INDEX.md
+
+Cross-reference fixes applied in key docs:
+- docs/architecture/verification/README.md
+  - fixed related-doc link to controller_validation_sequence.md
+- docs/PROJECT_OVERVIEW.md
+  - fixed NIB spec link to docs/nib_spec.md
+- docs/communication_model.md
+  - fixed depends_on path to docs/nib_spec.md
+- docs/ROADMAP_AND_TODO.md
+  - updated checklist lines to reflect completed index/cross-reference cleanup
+
+============================================================
+7) GOVERNANCE / OPEN-SOURCE READINESS OUTCOME
+============================================================
+
+Repository now aligns with standard GitHub open-source documentation expectations:
+- Core root docs present and linked
+- Community-health docs exposed from README
+- Documentation map established and coherent
+- Internal phase/session docs separated from public docs surface
+- Support and security guidance explicit
+
+============================================================
+8) WSL SYNC CHECKLIST
+============================================================
+
+To match this state in WSL clone, ensure all of the below are replicated:
+1. Create docs/not_for_github structure and move the listed archived files.
+2. Ensure root has SUPPORT.md and updated README.md links.
+3. Ensure docs/INDEX.md and docs/DOCS_PORTAL_MAP.md content matches.
+4. Rename docs/contibution-rules.md -> docs/contribution-rules.md.
+5. Apply cross-reference fixes listed in Section 6.
+6. Apply SECURITY.md and docs/community_checklist style normalization.
+
+If you are syncing by git, cherry-pick/merge the documentation commits that include
+these changes.

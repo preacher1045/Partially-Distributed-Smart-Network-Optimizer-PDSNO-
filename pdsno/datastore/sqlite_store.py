@@ -12,8 +12,7 @@ Provides optimistic locking for conflict detection and thread-safe access.
 
 Schema alignment history:
     2026-03-22 — Option B: schema brought in line with nib_spec.md.
-        See migration_001_schema_alignment.py for upgrade path
-        from pre-alignment databases.
+                            Aligned schema is now the canonical baseline.
 """
 
 import sqlite3
