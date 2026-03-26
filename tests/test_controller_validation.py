@@ -152,9 +152,10 @@ class TestValidationFlow:
         message_bus.register_controller(rc.temp_id, rc_handlers)
         
         # Request validation
-        rc.request_validation("global_cntl_1")
+        success = rc.request_validation("global_cntl_1")
         
         # Verify RC is validated
+        assert success is True
         assert rc.validated is True
         assert rc.assigned_id is not None
         assert rc.assigned_id.startswith("regional_cntl_zone-A_")

@@ -103,7 +103,7 @@ topology:
       binds:
         - /home/schoolboy/PDSNO/containerlab/frr/frr-1/frr.conf:/etc/frr/frr.conf:ro
         - /home/schoolboy/PDSNO/containerlab/frr/frr-1/daemons:/etc/frr/daemons:ro
-        - /home/schoolboy/PDSNO/containerlab/frr/snmpd.conf:/etc/snmp/snmpd.conf:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-1/snmpd.conf:/etc/snmp/snmpd.conf:ro
       exec:
         - bash -lc "command -v snmpd >/dev/null || (command -v apt-get >/dev/null && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y snmpd) || (command -v apk >/dev/null && apk add --no-cache net-snmp) || (command -v dnf >/dev/null && dnf install -y net-snmp) || (command -v yum >/dev/null && yum install -y net-snmp) || true"
         - bash -lc "if command -v snmpd >/dev/null; then snmpd -f -Lo -C -c /etc/snmp/snmpd.conf & else echo 'snmpd not available; skipping SNMP daemon start'; fi"
@@ -115,7 +115,7 @@ topology:
       binds:
         - /home/schoolboy/PDSNO/containerlab/frr/frr-2/frr.conf:/etc/frr/frr.conf:ro
         - /home/schoolboy/PDSNO/containerlab/frr/frr-2/daemons:/etc/frr/daemons:ro
-        - /home/schoolboy/PDSNO/containerlab/frr/snmpd.conf:/etc/snmp/snmpd.conf:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-2/snmpd.conf:/etc/snmp/snmpd.conf:ro
       exec:
         - bash -lc "command -v snmpd >/dev/null || (command -v apt-get >/dev/null && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y snmpd) || (command -v apk >/dev/null && apk add --no-cache net-snmp) || (command -v dnf >/dev/null && dnf install -y net-snmp) || (command -v yum >/dev/null && yum install -y net-snmp) || true"
         - bash -lc "if command -v snmpd >/dev/null; then snmpd -f -Lo -C -c /etc/snmp/snmpd.conf & else echo 'snmpd not available; skipping SNMP daemon start'; fi"
@@ -127,7 +127,7 @@ topology:
       binds:
         - /home/schoolboy/PDSNO/containerlab/frr/frr-3/frr.conf:/etc/frr/frr.conf:ro
         - /home/schoolboy/PDSNO/containerlab/frr/frr-3/daemons:/etc/frr/daemons:ro
-        - /home/schoolboy/PDSNO/containerlab/frr/snmpd.conf:/etc/snmp/snmpd.conf:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-3/snmpd.conf:/etc/snmp/snmpd.conf:ro
       exec:
         - bash -lc "command -v snmpd >/dev/null || (command -v apt-get >/dev/null && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y snmpd) || (command -v apk >/dev/null && apk add --no-cache net-snmp) || (command -v dnf >/dev/null && dnf install -y net-snmp) || (command -v yum >/dev/null && yum install -y net-snmp) || true"
         - bash -lc "if command -v snmpd >/dev/null; then snmpd -f -Lo -C -c /etc/snmp/snmpd.conf & else echo 'snmpd not available; skipping SNMP daemon start'; fi"
@@ -139,7 +139,7 @@ topology:
       binds:
         - /home/schoolboy/PDSNO/containerlab/frr/frr-4/frr.conf:/etc/frr/frr.conf:ro
         - /home/schoolboy/PDSNO/containerlab/frr/frr-4/daemon:/etc/frr/daemons:ro
-        - /home/schoolboy/PDSNO/containerlab/frr/snmpd.conf:/etc/snmp/snmpd.conf:ro
+        - /home/schoolboy/PDSNO/containerlab/frr/frr-4/snmpd.conf:/etc/snmp/snmpd.conf:ro
       exec:
         - bash -lc "command -v snmpd >/dev/null || (command -v apt-get >/dev/null && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y snmpd) || (command -v apk >/dev/null && apk add --no-cache net-snmp) || (command -v dnf >/dev/null && dnf install -y net-snmp) || (command -v yum >/dev/null && yum install -y net-snmp) || true"
         - bash -lc "if command -v snmpd >/dev/null; then snmpd -f -Lo -C -c /etc/snmp/snmpd.conf & else echo 'snmpd not available; skipping SNMP daemon start'; fi"

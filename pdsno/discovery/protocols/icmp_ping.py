@@ -29,6 +29,7 @@ class ICMPScanner(AlgorithmBase):
     def __init__(self):
         super().__init__()
         self.ip_list: List[str] = []
+        self.simulate: bool = False
         self.reachable_devices: List[Dict] = []
         self.logger = get_logger(self.__class__.__name__)
     
@@ -40,6 +41,7 @@ class ICMPScanner(AlgorithmBase):
             context: Must contain 'ip_list' key with list of IP addresses
         """
         self.ip_list = context.get('ip_list', [])
+        self.simulate = context.get('simulate', False)
         if not self.ip_list:
             raise ValueError("Context must contain non-empty 'ip_list'")
         
@@ -108,6 +110,15 @@ class ICMPScanner(AlgorithmBase):
             {"ip": "...", "rtt_ms": ..., "timestamp": "..."} if reachable, None otherwise
         """
         try:
+            if self.simulate:
+                await asyncio.sleep(0.001)
+                return {
+                    "ip": ip,
+                    "rtt_ms": 1.0,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "protocol": "ICMP"
+                }
+
             # Use subprocess to call system ping command
             # Platform-specific: -c for Linux/Mac, -n for Windows
             import platform

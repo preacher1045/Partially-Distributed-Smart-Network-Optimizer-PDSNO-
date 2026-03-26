@@ -52,7 +52,8 @@ def lc(temp_dir, nib_store, message_bus):
         subnet="192.168.1.0/24",  # simulate=True passed via run_algorithm context
         context_manager=context_mgr,
         nib_store=nib_store,
-        message_bus=message_bus
+        message_bus=message_bus,
+        simulate=True
     )
 
 

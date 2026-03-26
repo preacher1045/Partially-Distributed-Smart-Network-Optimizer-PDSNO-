@@ -216,17 +216,27 @@ class ControllerRESTServer:
                 )
                 
                 # Call handler
-                response_envelope = handler(envelope)
-                
-                # Sign response if authenticator available
-                if response_envelope and self.authenticator:
-                    response_dict = response_envelope.to_dict()
-                    response_dict = self.authenticator.sign_message(response_dict)
-                    return response_dict
-                elif response_envelope:
-                    return response_envelope.to_dict()
-                else:
+                response_obj = handler(envelope)
+
+                if response_obj is None:
                     return {"status": "accepted"}
+
+                if isinstance(response_obj, MessageEnvelope):
+                    response_dict = response_obj.to_dict()
+                    if self.authenticator:
+                        response_dict = self.authenticator.sign_message(response_dict)
+                    return response_dict
+
+                if isinstance(response_obj, dict):
+                    return response_obj
+
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        f"Handler for {message_type.value} returned unsupported "
+                        f"type: {type(response_obj).__name__}"
+                    )
+                )
                     
             except HTTPException:
                 raise

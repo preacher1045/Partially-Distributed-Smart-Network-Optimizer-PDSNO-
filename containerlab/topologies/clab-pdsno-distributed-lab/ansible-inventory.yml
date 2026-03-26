@@ -1,0 +1,23 @@
+all:
+  vars:
+    # The generated inventory is assumed to be used from the clab host.
+    # Hence no http proxy should be used. Therefore we make sure the http
+    # module does not attempt using any global http proxy.
+    ansible_httpapi_use_proxy: false
+  children:
+    linux:
+      hosts:
+        clab-pdsno-distributed-lab-frr-leaf-1:
+          ansible_host: 172.20.20.12
+        clab-pdsno-distributed-lab-frr-leaf-2:
+          ansible_host: 172.20.20.13
+        clab-pdsno-distributed-lab-frr-leaf-4:
+          ansible_host: 172.20.20.14
+        clab-pdsno-distributed-lab-frr-spine:
+          ansible_host: 172.20.20.11
+        clab-pdsno-distributed-lab-pdsno-gc:
+          ansible_host: 172.20.20.5
+        clab-pdsno-distributed-lab-pdsno-lc:
+          ansible_host: 172.20.20.7
+        clab-pdsno-distributed-lab-pdsno-rc:
+          ansible_host: 172.20.20.6

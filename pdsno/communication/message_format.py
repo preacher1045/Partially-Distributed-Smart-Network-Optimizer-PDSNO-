@@ -18,6 +18,13 @@ from enum import Enum
 import uuid
 
 
+def _parse_iso8601(value: str) -> datetime:
+    """Parse ISO-8601 timestamps, including trailing 'Z' UTC form."""
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    return datetime.fromisoformat(value)
+
+
 class MessageType(Enum):
     """Standard PDSNO message types"""
     # Controller Validation
@@ -72,7 +79,7 @@ class MessageEnvelope:
     def __post_init__(self):
         """Ensure timestamp is timezone-aware"""
         if isinstance(self.timestamp, str):
-            self.timestamp = datetime.fromisoformat(self.timestamp)
+            self.timestamp = _parse_iso8601(self.timestamp)
         if self.timestamp.tzinfo is None:
             self.timestamp = self.timestamp.replace(tzinfo=timezone.utc)
         
@@ -100,7 +107,7 @@ class MessageEnvelope:
             message_type=MessageType(data["message_type"]),
             sender_id=data["sender_id"],
             recipient_id=data["recipient_id"],
-            timestamp=datetime.fromisoformat(data["timestamp"]),
+            timestamp=_parse_iso8601(data["timestamp"]),
             payload=data.get("payload", {}),
             correlation_id=data.get("correlation_id")
         )

@@ -212,7 +212,84 @@ class NIBStore:
         with self._get_connection() as conn:
             conn.executescript(schema)
 
-    # ── Device Operations ────────────────────────────────────────────────────
+        # Keep existing databases forward-compatible by adding fields that
+        # newer workflows expect without requiring a destructive reset.
+        self._ensure_schema_alignment()
+
+    def _table_columns(self, table_name: str) -> set[str]:
+        """Return set of column names for a table."""
+        with self._get_connection() as conn:
+            rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+            return {row[1] for row in rows}
+
+    def _ensure_column(self, table_name: str, column_name: str, ddl_tail: str) -> None:
+        """Add a column if it is missing."""
+        if column_name in self._table_columns(table_name):
+            return
+
+        with self._get_connection() as conn:
+            conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {ddl_tail}")
+
+    def _ensure_schema_alignment(self) -> None:
+        """
+        Add columns used by the aligned NIB schema if they are missing.
+
+        This preserves compatibility with older DB files that were created
+        before Option-B alignment.
+        """
+        # Devices
+        self._ensure_column("devices", "firmware_version", "TEXT")
+        self._ensure_column("devices", "local_controller", "TEXT")
+        self._ensure_column("devices", "discovery_method", "TEXT")
+        self._ensure_column("devices", "last_updated", "TEXT")
+
+        # Configs
+        self._ensure_column("configs", "config_hash", "TEXT NOT NULL DEFAULT ''")
+        self._ensure_column("configs", "category", "TEXT NOT NULL DEFAULT 'LOW'")
+        self._ensure_column("configs", "execution_token", "TEXT")
+        self._ensure_column("configs", "executed_at", "TEXT")
+        self._ensure_column("configs", "expiry", "TEXT")
+        self._ensure_column("configs", "policy_version", "TEXT")
+        self._ensure_column("configs", "rollback_payload", "TEXT")
+
+        # Policies
+        self._ensure_column("policies", "policy_version", "TEXT")
+        self._ensure_column("policies", "target_region", "TEXT")
+        self._ensure_column("policies", "content", "TEXT")
+        self._ensure_column("policies", "distributed_by", "TEXT")
+        self._ensure_column("policies", "distributed_at", "TEXT")
+        self._ensure_column("policies", "valid_from", "TEXT")
+        self._ensure_column("policies", "valid_until", "TEXT")
+        self._ensure_column("policies", "is_active", "INTEGER NOT NULL DEFAULT 1")
+
+        # Events
+        self._ensure_column("events", "actor", "TEXT")
+        self._ensure_column("events", "subject", "TEXT")
+        self._ensure_column("events", "action", "TEXT")
+        self._ensure_column("events", "decision", "TEXT")
+        self._ensure_column("events", "payload_ref", "TEXT")
+        self._ensure_column("events", "notes", "TEXT")
+
+        # Locks
+        self._ensure_column("locks", "associated_request", "TEXT")
+        self._ensure_column("locks", "status", "TEXT NOT NULL DEFAULT 'ACTIVE'")
+
+        # Backfill aliases where older and newer naming overlap.
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                UPDATE devices
+                SET local_controller = COALESCE(local_controller, managed_by_lc)
+                WHERE managed_by_lc IS NOT NULL
+                """
+            )
+
+        # Helpful indexes for aligned columns.
+        with self._get_connection() as conn:
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_devices_lc ON devices(local_controller)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_events_actor ON events(actor)")
+
+    # ===== Device Operations =====
 
     def get_device(self, device_id: str) -> Optional[Device]:
         with self._get_connection() as conn:
@@ -260,6 +337,7 @@ class NIBStore:
         now = datetime.now(timezone.utc).isoformat()
 
         with self._get_connection() as conn:
+<<<<<<< HEAD
             existing = self.get_device_by_mac(device.mac_address)
 
             if existing:
@@ -282,6 +360,65 @@ class NIBStore:
                         json.dumps(device.metadata),
                         device.mac_address, device.version
                     )
+=======
+            devices_cols = self._table_columns("devices")
+
+            # Check if device exists
+            existing = self.get_device_by_mac(device.mac_address)
+
+            # Prefer explicit model fields when present, fall back to metadata.
+            local_controller = getattr(device, 'local_controller', None) or device.managed_by_lc
+            discovery_method = getattr(device, 'discovery_method', None)
+            if not discovery_method and isinstance(device.metadata, dict):
+                discovery_method = device.metadata.get('discovery_method')
+
+            firmware_version = getattr(device, 'firmware_version', None)
+            last_updated = datetime.now(timezone.utc).isoformat()
+            
+            if existing:
+                # Update with version check.
+                update_fields = [
+                    "ip_address = ?",
+                    "hostname = ?",
+                    "vendor = ?",
+                    "device_type = ?",
+                    "status = ?",
+                    "last_seen = ?",
+                    "managed_by_lc = ?",
+                    "region = ?",
+                    "metadata = ?",
+                    "version = version + 1",
+                ]
+                params = [
+                    device.ip_address,
+                    device.hostname,
+                    device.vendor,
+                    device.device_type,
+                    device.status.value,
+                    device.last_seen.isoformat() if device.last_seen else None,
+                    device.managed_by_lc,
+                    device.region,
+                    json.dumps(device.metadata),
+                ]
+
+                if "local_controller" in devices_cols:
+                    update_fields.append("local_controller = ?")
+                    params.append(local_controller)
+                if "discovery_method" in devices_cols:
+                    update_fields.append("discovery_method = ?")
+                    params.append(discovery_method)
+                if "firmware_version" in devices_cols:
+                    update_fields.append("firmware_version = ?")
+                    params.append(firmware_version)
+                if "last_updated" in devices_cols:
+                    update_fields.append("last_updated = ?")
+                    params.append(last_updated)
+
+                params.extend([device.mac_address, device.version])
+                cursor = conn.execute(
+                    f"UPDATE devices SET {', '.join(update_fields)} WHERE mac_address = ? AND version = ?",
+                    tuple(params)
+>>>>>>> 924a240 (feat: add distributed simulation updates and protocol fixes)
                 )
                 if cursor.rowcount == 0:
                     return NIBResult(
@@ -300,6 +437,7 @@ class NIBStore:
                     """
                     INSERT INTO devices (
                         device_id, temp_scan_id, ip_address, mac_address, hostname,
+<<<<<<< HEAD
                         vendor, device_type, firmware_version, region, local_controller,
                         status, discovery_method, first_seen, last_seen,
                         last_updated, version, metadata
@@ -313,6 +451,22 @@ class NIBStore:
                         device.status.value, device.discovery_method,
                         device.first_seen.isoformat(), device.last_seen.isoformat(),
                         now, 0, json.dumps(device.metadata)
+=======
+                        vendor, device_type, status, first_seen, last_seen,
+                        managed_by_lc, region, version, metadata,
+                        firmware_version, local_controller, discovery_method, last_updated
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        device.device_id, device.temp_scan_id, device.ip_address,
+                        device.mac_address, device.hostname, device.vendor, device.device_type,
+                        device.status.value, device.first_seen.isoformat(), device.last_seen.isoformat(),
+                        device.managed_by_lc, device.region, 0, json.dumps(device.metadata),
+                        firmware_version if "firmware_version" in devices_cols else None,
+                        local_controller if "local_controller" in devices_cols else None,
+                        discovery_method if "discovery_method" in devices_cols else None,
+                        last_updated if "last_updated" in devices_cols else None,
+>>>>>>> 924a240 (feat: add distributed simulation updates and protocol fixes)
                     )
                 )
                 return NIBResult(success=True, data=device.device_id)

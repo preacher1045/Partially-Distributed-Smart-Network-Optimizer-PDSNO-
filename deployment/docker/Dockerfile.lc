@@ -1,8 +1,15 @@
+# Copyright (C) 2025 TENKEI
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# This file is part of PDSNO.
+# See the LICENSE file in the project root for license information.
+
 FROM python:3.10-slim
 
-# Install ping utility required by ICMP discovery scanner.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    iputils-ping \
+# ICMP scanner relies on the ping binary in containerized LC runtime.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /pdsno
+CMD ["python", "examples/lc_process.py"]

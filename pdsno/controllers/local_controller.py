@@ -41,6 +41,7 @@ class LocalController(BaseController):
         context_manager: ContextManager,
         nib_store: NIBStore,
         message_bus=None,
+        simulate: bool = False,
         mqtt_broker: Optional[str] = None,
         mqtt_port: int = 1883,
         key_manager=None  # Phase 6D: Key distribution
@@ -55,6 +56,7 @@ class LocalController(BaseController):
         
         self.subnet = subnet
         self.message_bus = message_bus
+        self.simulate = simulate
         self.last_scan_devices: Dict[str, Device] = {}  # MAC -> Device
         
         # MQTT client setup
@@ -98,7 +100,10 @@ class LocalController(BaseController):
         
         # Step 1: ARP Scan
         arp_scanner = ARPScanner()
-        arp_result = self.run_algorithm(arp_scanner, {'subnet': self.subnet})
+        arp_result = self.run_algorithm(
+            arp_scanner,
+            {'subnet': self.subnet, 'simulate': self.simulate}
+        )
         arp_devices = arp_result.get('devices', [])
         
         self.logger.info(f"ARP scan found {len(arp_devices)} devices")
@@ -116,14 +121,20 @@ class LocalController(BaseController):
         # Step 2: ICMP Scan (only on discovered IPs)
         ip_list = [d['ip'] for d in arp_devices]
         icmp_scanner = ICMPScanner()
-        icmp_result = self.run_algorithm(icmp_scanner, {'ip_list': ip_list})
+        icmp_result = self.run_algorithm(
+            icmp_scanner,
+            {'ip_list': ip_list, 'simulate': self.simulate}
+        )
         icmp_devices = {d['ip']: d for d in icmp_result.get('devices', [])}
         
         self.logger.info(f"ICMP scan: {len(icmp_devices)}/{len(ip_list)} reachable")
         
         # Step 3: SNMP Scan (optional enrichment)
         snmp_scanner = SNMPScanner()
-        snmp_result = self.run_algorithm(snmp_scanner, {'ip_list': ip_list})
+        snmp_result = self.run_algorithm(
+            snmp_scanner,
+            {'ip_list': ip_list, 'simulate': self.simulate}
+        )
         snmp_devices = {d['ip']: d for d in snmp_result.get('devices', [])}
         
         self.logger.info(f"SNMP scan: {len(snmp_devices)}/{len(ip_list)} responded")
@@ -134,8 +145,9 @@ class LocalController(BaseController):
         # Step 5: Detect deltas
         delta = self._detect_deltas(merged_devices)
         
-        # Step 6: Write to NIB
-        self._write_devices_to_nib(merged_devices)
+        # Step 6: Write only changed devices to NIB
+        changed_devices = delta['new'] + delta['updated']
+        self._write_devices_to_nib(changed_devices)
         
         # Step 7: Send discovery report to RC (if message bus connected)
         if regional_controller_id and self.message_bus:
@@ -183,7 +195,8 @@ class LocalController(BaseController):
             device = {
                 'ip': ip,
                 'mac': mac,
-                'last_seen': arp_dev['timestamp']
+                'last_seen': arp_dev['timestamp'],
+                'protocol': arp_dev.get('protocol', 'ARP')
             }
             
             # Add ICMP data if available
@@ -200,6 +213,13 @@ class LocalController(BaseController):
                 device['vendor'] = snmp.get('vendor')
                 device['model'] = snmp.get('model')
                 device['uptime_seconds'] = snmp.get('uptime_seconds')
+
+            if ip in snmp_devices:
+                device['discovery_method'] = 'snmp'
+            elif ip in icmp_devices:
+                device['discovery_method'] = 'icmp'
+            else:
+                device['discovery_method'] = 'arp'
             
             merged.append(device)
         
@@ -228,9 +248,26 @@ class LocalController(BaseController):
             if mac not in self.last_scan_devices:
                 new.append(device)
             else:
-                # Compare attributes (simplified - just check IP for now)
+                # Compare core and enrichment/status fields so late-arriving
+                # SNMP details or reachability transitions are persisted.
                 last_device = self.last_scan_devices[mac]
-                if device['ip'] != last_device.ip_address:
+                current_snapshot = (
+                    device.get('ip'),
+                    device.get('hostname'),
+                    device.get('vendor'),
+                    device.get('model'),
+                    device.get('reachable'),
+                    device.get('discovery_method')
+                )
+                last_snapshot = (
+                    last_device.ip_address,
+                    last_device.hostname,
+                    last_device.vendor,
+                    last_device.device_type,
+                    last_device.status == DeviceStatus.ACTIVE,
+                    (last_device.metadata or {}).get('discovery_method')
+                )
+                if current_snapshot != last_snapshot:
                     updated.append(device)
                 else:
                     unchanged.append(device)
@@ -255,11 +292,14 @@ class LocalController(BaseController):
     def _write_devices_to_nib(self, devices: List[Dict]):
         """Write discovered devices to NIB"""
         for dev_dict in devices:
+            mac = dev_dict['mac']
+            existing = self.nib_store.get_device_by_mac(mac)
+
             # Convert to Device model
             device = Device(
-                device_id="",  # Will be assigned by NIB
+                device_id=existing.device_id if existing else "",
                 ip_address=dev_dict['ip'],
-                mac_address=dev_dict['mac'],
+                mac_address=mac,
                 hostname=dev_dict.get('hostname'),
                 vendor=dev_dict.get('vendor'),
                 device_type=dev_dict.get('model'),
@@ -267,9 +307,12 @@ class LocalController(BaseController):
                 last_seen=datetime.fromisoformat(dev_dict['last_seen']),
                 local_controller=self.controller_id,
                 region=self.region,
+                version=existing.version if existing else 0,
                 metadata={
                     'rtt_ms': dev_dict.get('rtt_ms'),
-                    'uptime_seconds': dev_dict.get('uptime_seconds')
+                    'uptime_seconds': dev_dict.get('uptime_seconds'),
+                    'discovery_method': dev_dict.get('discovery_method'),
+                    'protocol': dev_dict.get('protocol', 'ARP')
                 }
             )
             
@@ -278,11 +321,12 @@ class LocalController(BaseController):
             
             if not result.success:
                 self.logger.warning(
-                    f"Failed to write device {dev_dict['mac']} to NIB: {result.error}"
+                    f"Failed to write device {mac} to NIB: {result.error}"
                 )
-            else:
-                # Update last_scan_devices for delta detection next cycle
-                self.last_scan_devices[dev_dict['mac']] = device
+
+            # Keep discovery cache in sync with observed state even when a
+            # write conflicts, preventing repeated "new" loops.
+            self.last_scan_devices[mac] = device
     
     def _send_discovery_report(self, rc_id: str, delta: Dict):
         """Send delta-only discovery report to Regional Controller"""

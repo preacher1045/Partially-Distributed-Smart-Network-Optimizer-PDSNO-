@@ -204,11 +204,11 @@ class RegionalController(BaseController):
             self.logger.error(f"Key exchange failed: {e}", exc_info=True)
             return False
     
-    def request_validation(self, global_controller_id: str, global_controller_url: Optional[str] = None):
+    def request_validation(self, global_controller_id: str, global_controller_url: Optional[str] = None) -> bool:
         """Request validation from the Global Controller via HTTP or message bus."""
         if self.validated:
             self.logger.warning(f"Controller {self.controller_id} already validated")
-            return
+            return True
         
         # Determine communication method
         use_http = self.http_client is not None and global_controller_url is not None
@@ -265,6 +265,9 @@ class RegionalController(BaseController):
             self._handle_validation_result(response)
         else:
             self.logger.error(f"Unexpected response type: {response.message_type}")
+            return False
+
+        return bool(self.validated)
 
     
     def _handle_challenge(self, envelope: MessageEnvelope, global_controller_id: str):

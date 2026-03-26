@@ -13,6 +13,7 @@ Returns a list of {ip, mac} pairs.
 
 import asyncio
 import ipaddress
+import subprocess
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
@@ -31,6 +32,7 @@ class ARPScanner(AlgorithmBase):
     def __init__(self):
         super().__init__()
         self.subnet: Optional[ipaddress.IPv4Network] = None
+        self.simulate: bool = True
         self.discovered_devices: List[Dict] = []
         self.logger = get_logger(self.__class__.__name__)
     
@@ -49,6 +51,8 @@ class ARPScanner(AlgorithmBase):
             self.subnet = ipaddress.IPv4Network(subnet_str, strict=False)
         except ValueError as e:
             raise ValueError(f"Invalid subnet format: {e}")
+
+        self.simulate = context.get('simulate', True)
         
         self.logger.info(f"ARP Scanner initialized for subnet {self.subnet}")
         self._initialized = True
@@ -99,6 +103,9 @@ class ARPScanner(AlgorithmBase):
         
         Sends ARP requests concurrently to all IPs in subnet.
         """
+        if not self.simulate:
+            return await self._scan_subnet_real()
+
         # For PoC, we'll use a simulated scan
         # Real implementation would use scapy: Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=ip)
         
@@ -117,6 +124,59 @@ class ARPScanner(AlgorithmBase):
                 devices.append(result)
         
         return devices
+
+    async def _scan_subnet_real(self) -> List[Dict]:
+        """Run a real ARP sweep using scapy for the full subnet."""
+
+        def _run_scan() -> List[Dict]:
+            from scapy.all import ARP, Ether, srp
+
+            target_ip = str(next(self.subnet.hosts()))
+            iface = self._detect_interface_for_target(target_ip)
+
+            packet = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=str(self.subnet))
+            kwargs = {"timeout": 2, "verbose": False}
+            if iface:
+                kwargs["iface"] = iface
+
+            answered, _ = srp(packet, **kwargs)
+
+            devices: List[Dict] = []
+            for _, received in answered:
+                devices.append(
+                    {
+                        "ip": received.psrc,
+                        "mac": received.hwsrc,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "protocol": "ARP",
+                    }
+                )
+
+            return devices
+
+        try:
+            return await asyncio.to_thread(_run_scan)
+        except Exception as e:
+            self.logger.error(f"Real ARP scan failed: {e}", exc_info=True)
+            return []
+
+    @staticmethod
+    def _detect_interface_for_target(target_ip: str) -> Optional[str]:
+        """Detect outbound interface for target IP via `ip route get`."""
+        try:
+            output = subprocess.check_output(
+                ["ip", "route", "get", target_ip],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+            parts = output.split()
+            if "dev" in parts:
+                idx = parts.index("dev")
+                if idx + 1 < len(parts):
+                    return parts[idx + 1]
+        except Exception:
+            return None
+        return None
     
     async def _arp_request(self, ip: str) -> Optional[Dict]:
         """
@@ -127,16 +187,17 @@ class ARPScanner(AlgorithmBase):
         """
         try:
             # Simulate ARP request with small delay
-            await asyncio.sleep(0.001)  # Simulate network latency
+            await asyncio.sleep(0.001)
             
             # PoC: Simulate some hosts responding
             # Real implementation: send ARP packet and wait for response
             # from scapy.all import ARP, Ether, srp
             # answered, _ = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=ip), timeout=timeout, verbose=0)
             
-            # Simulate 20% response rate for testing
+            # In simulation mode, use a higher response rate for richer test data.
             import random
-            if random.random() < 0.2:
+            response_rate = 0.6 if self.simulate else 0.2
+            if random.random() < response_rate:
                 # Simulate MAC address
                 mac = self._generate_fake_mac(ip)
                 return {

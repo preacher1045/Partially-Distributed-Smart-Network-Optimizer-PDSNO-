@@ -35,6 +35,7 @@ class SNMPScanner(AlgorithmBase):
         super().__init__()
         self.ip_list: List[str] = []
         self.community: str = "public"
+        self.simulate: bool = True
         self.enriched_devices: List[Dict] = []
         self.logger = get_logger(self.__class__.__name__)
     
@@ -47,6 +48,7 @@ class SNMPScanner(AlgorithmBase):
         """
         self.ip_list = context.get('ip_list', [])
         self.community = context.get('community', 'public')
+        self.simulate = context.get('simulate', True)
         
         if not self.ip_list:
             raise ValueError("Context must contain non-empty 'ip_list'")
@@ -117,9 +119,11 @@ class SNMPScanner(AlgorithmBase):
             Device info dict if SNMP succeeds, None otherwise
         """
         try:
-            # PoC: Simulate SNMP response
-            # Real implementation would use pysnmp or easysnmp
-            await asyncio.sleep(0.01)  # Simulate query latency
+            if not self.simulate:
+                return await self._query_single_real(ip)
+
+            # PoC simulation mode
+            await asyncio.sleep(0.01)
             
             # Simulate 50% success rate
             import random
@@ -138,6 +142,86 @@ class SNMPScanner(AlgorithmBase):
             
         except Exception as e:
             self.logger.debug(f"SNMP query to {ip} failed: {e}")
+            return None
+
+    async def _query_single_real(self, ip: str, timeout: int = 2) -> Optional[Dict]:
+        """Query device using pysnmp with v6/v7 API compatibility."""
+        try:
+            try:
+                from pysnmp.hlapi.asyncio import (
+                    getCmd as _snmp_get,
+                    SnmpEngine,
+                    CommunityData,
+                    UdpTransportTarget,
+                    ContextData,
+                    ObjectType,
+                    ObjectIdentity,
+                )
+            except ImportError:
+                from pysnmp.hlapi.asyncio import (
+                    get_cmd as _snmp_get,
+                    SnmpEngine,
+                    CommunityData,
+                    UdpTransportTarget,
+                    ContextData,
+                    ObjectType,
+                    ObjectIdentity,
+                )
+
+            try:
+                transport = await UdpTransportTarget.create((ip, 161), timeout=timeout, retries=0)
+            except AttributeError:
+                transport = UdpTransportTarget((ip, 161), timeout=timeout, retries=0)
+
+            iterator = _snmp_get(
+                SnmpEngine(),
+                CommunityData(self.community),
+                transport,
+                ContextData(),
+                ObjectType(ObjectIdentity(self.OID_SYSNAME)),
+                ObjectType(ObjectIdentity(self.OID_SYSDESCR)),
+                ObjectType(ObjectIdentity(self.OID_SYSUPTIME)),
+            )
+
+            error_indication, error_status, _, var_binds = await iterator
+            if error_indication or error_status:
+                return None
+
+            hostname = None
+            description = None
+            uptime = None
+
+            for oid, val in var_binds:
+                oid_str = str(oid)
+                if oid_str.endswith(self.OID_SYSNAME):
+                    hostname = str(val)
+                elif oid_str.endswith(self.OID_SYSDESCR):
+                    description = str(val)
+                elif oid_str.endswith(self.OID_SYSUPTIME):
+                    try:
+                        uptime = int(val)
+                    except Exception:
+                        uptime = None
+
+            vendor = None
+            if description:
+                for marker in ["Cisco", "Juniper", "Arista", "HP", "Dell", "FRRouting"]:
+                    if marker.lower() in description.lower():
+                        vendor = marker
+                        break
+
+            return {
+                "ip": ip,
+                "hostname": hostname,
+                "vendor": vendor,
+                "model": description,
+                "uptime_seconds": uptime,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "protocol": "SNMP",
+            }
+
+        except Exception as e:
+            self.logger.debug(f"Real SNMP query to {ip} failed: {e}")
             return None
 
 

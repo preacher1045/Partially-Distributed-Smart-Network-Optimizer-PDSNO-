@@ -1,0 +1,36 @@
+---
+frr-leaf-1:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.12
+frr-leaf-2:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.13
+frr-leaf-4:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.14
+frr-spine:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.11
+pdsno-gc:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.5
+pdsno-lc:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.7
+pdsno-rc:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.6
