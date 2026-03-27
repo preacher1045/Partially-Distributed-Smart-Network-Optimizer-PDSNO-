@@ -136,6 +136,9 @@ yarn-error.log
 # Docker
 docker-compose.override.yml
 
+# Containerlab runtime output (generated, may contain keys/inventory)
+containerlab/topologies/clab-*/
+
 # Misc
 .ipynb_checkpoints/
 *.ipynb_checkpoints/
