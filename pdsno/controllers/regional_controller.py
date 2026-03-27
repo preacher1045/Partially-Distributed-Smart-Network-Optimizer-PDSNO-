@@ -13,15 +13,26 @@ and approves MEDIUM/LOW config changes.
 
 import hmac
 import hashlib
+import json
+import os
+import uuid
+from datetime import datetime, timezone
 from typing import Optional, Callable
 
 from pdsno.controllers.base_controller import BaseController
 from pdsno.communication.message_format import MessageEnvelope, MessageType
-from pdsno.datastore import NIBStore
+from pdsno.datastore import NIBStore, Controller, Event, ConfigStatus, LockType
 from pdsno.controllers.context_manager import ContextManager
 from pdsno.communication.rest_server import ControllerRESTServer
 from pdsno.communication.http_client import ControllerHTTPClient
 from pdsno.communication.mqtt_client import ControllerMQTTClient
+from pdsno.config import (
+    ApprovalState,
+    ApprovalWorkflowEngine,
+    ConfigSensitivityClassifier,
+    ExecutionTokenManager,
+    SensitivityLevel,
+)
 
 
 class RegionalController(BaseController):
@@ -75,6 +86,19 @@ class RegionalController(BaseController):
         
         # Store for challenge-response flow
         self.pending_validation = None
+        self.controller_sequence = {"local": 0}
+        self.proposal_locks = {}
+
+        self.sensitivity_classifier = ConfigSensitivityClassifier()
+        self.approval_engine = ApprovalWorkflowEngine(
+            controller_id=temp_id,
+            controller_role="regional",
+            nib_store=nib_store,
+        )
+        self.execution_token_manager = ExecutionTokenManager(
+            controller_id=temp_id,
+            shared_secret=self._load_execution_shared_secret(),
+        )
         
         # REST server setup
         self.rest_server = None
@@ -89,6 +113,14 @@ class RegionalController(BaseController):
             self.rest_server.register_handler(
                 MessageType.DISCOVERY_REPORT,
                 self.handle_discovery_report
+            )
+            self.rest_server.register_handler(
+                MessageType.CONFIG_PROPOSAL,
+                self.handle_config_proposal
+            )
+            self.rest_server.register_handler(
+                MessageType.EXECUTION_RESULT,
+                self.handle_execution_result
             )
             
             self.logger.info(f"REST server configured on port {rest_port}")
@@ -332,6 +364,8 @@ class RegionalController(BaseController):
             
             # Update controller_id to assigned_id
             self.controller_id = self.assigned_id
+            self.approval_engine.controller_id = self.assigned_id
+            self.execution_token_manager.controller_id = self.assigned_id
             
             self.logger.info(
                 f"✓ Validation successful! Assigned ID: {self.assigned_id}"
@@ -371,15 +405,118 @@ class RegionalController(BaseController):
         Handle validation requests from Local Controllers (delegated authority).
         
         This mirrors the GC's validation logic but is scoped to the RC's region.
-        Not implemented in Phase 4 - will be added in Phase 5.
         """
-        self.logger.info("Received LC validation request (not implemented in Phase 4)")
-        return MessageEnvelope(
-            sender_id=self.controller_id,
-            recipient_id=envelope.sender_id,
-            message_type=MessageType.VALIDATION_RESULT,
-            payload={"status": "ERROR", "reason": "NOT_IMPLEMENTED_YET"}
-        )
+        payload = envelope.payload or {}
+        temp_id = payload.get("temp_id")
+        controller_type = payload.get("controller_type")
+        region = payload.get("region")
+        public_key = payload.get("public_key")
+        metadata = payload.get("metadata", {})
+
+        self.logger.info(f"Received LC validation request from {envelope.sender_id}")
+
+        if controller_type != "local":
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.VALIDATION_RESULT,
+                payload={"status": "REJECTED", "reason": "INVALID_CONTROLLER_TYPE"}
+            )
+
+        if not temp_id or not public_key:
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.VALIDATION_RESULT,
+                payload={"status": "REJECTED", "reason": "MISSING_REQUIRED_FIELDS"}
+            )
+
+        if region != self.region:
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.VALIDATION_RESULT,
+                payload={"status": "REJECTED", "reason": "REGION_MISMATCH"}
+            )
+
+        self.controller_sequence["local"] += 1
+        seq = self.controller_sequence["local"]
+        assigned_id = f"local_cntl_{region}_{seq}"
+        issued_at = datetime.now(timezone.utc)
+
+        certificate = {
+            "assigned_id": assigned_id,
+            "role": "local",
+            "region": region,
+            "public_key": public_key,
+            "issued_by": self.controller_id,
+            "issued_at": issued_at.isoformat(),
+            "signature": "hmac-placeholder"
+        }
+
+        try:
+            controller_record = Controller(
+                controller_id=assigned_id,
+                role="local",
+                region=region,
+                status="active",
+                validated_by=self.controller_id,
+                validated_at=issued_at,
+                public_key=public_key,
+                certificate=json.dumps(certificate),
+                capabilities=metadata.get("capabilities", []),
+                metadata=metadata,
+                version=0
+            )
+
+            result = self.nib_store.upsert_controller(controller_record)
+            if not result.success:
+                self.logger.error(f"Failed to write local controller to NIB: {result.error}")
+                return MessageEnvelope(
+                    sender_id=self.controller_id,
+                    recipient_id=envelope.sender_id,
+                    message_type=MessageType.VALIDATION_RESULT,
+                    payload={"status": "ERROR", "reason": "NIB_WRITE_FAILED"}
+                )
+
+            event = Event(
+                event_id=f"event-{uuid.uuid4().hex[:12]}",
+                event_type="CONTROLLER_VALIDATED",
+                actor=self.controller_id,
+                timestamp=issued_at,
+                action="Assigned local controller identity",
+                subject=assigned_id,
+                decision="APPROVED",
+                details={
+                    "assigned_id": assigned_id,
+                    "role": "local",
+                    "region": region,
+                    "validated_at": issued_at.isoformat()
+                }
+            )
+            self.nib_store.write_event(event)
+
+            self.logger.info(f"Validated local controller {assigned_id} in region {region}")
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.VALIDATION_RESULT,
+                payload={
+                    "status": "APPROVED",
+                    "assigned_id": assigned_id,
+                    "certificate": certificate,
+                    "role": "local",
+                    "region": region
+                }
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to validate local controller: {e}", exc_info=True)
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.VALIDATION_RESULT,
+                payload={"status": "ERROR", "reason": "REGISTRATION_FAILED"}
+            )
     
     def handle_discovery_report(self, envelope: MessageEnvelope) -> Optional[MessageEnvelope]:
         """Handle discovery reports from Local Controllers."""
@@ -452,6 +589,499 @@ class RegionalController(BaseController):
                 )
         
         return collisions
+
+    def handle_config_proposal(self, envelope: MessageEnvelope) -> MessageEnvelope:
+        """Review LC proposal, approve when allowed, and issue execution instruction."""
+        self._release_expired_proposal_locks()
+
+        payload = envelope.payload or {}
+        proposal_id = payload.get("proposal_id")
+        device_id = payload.get("device_id")
+        config_lines = payload.get("config_lines") or []
+
+        if not proposal_id or not device_id:
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_REJECTION,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "DENY",
+                    "reason": "MISSING_REQUIRED_FIELDS",
+                },
+            )
+
+        lock_ok, lock_error = self._acquire_proposal_lock(device_id, proposal_id)
+        if not lock_ok:
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_REJECTION,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "DENY",
+                    "reason": lock_error or "LOCK_CONFLICT",
+                },
+            )
+
+        recomputed = self.sensitivity_classifier.classify(config_lines)
+        request = self.approval_engine.get_request(proposal_id)
+        if not request:
+            self._release_proposal_lock(proposal_id)
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_REJECTION,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "DENY",
+                    "reason": "REQUEST_NOT_FOUND",
+                },
+            )
+
+        effective = self._max_sensitivity(request.sensitivity, recomputed)
+        if effective == SensitivityLevel.HIGH:
+            return self._handle_high_proposal_via_gc(
+                envelope=envelope,
+                proposal_id=proposal_id,
+                device_id=device_id,
+                config_lines=config_lines,
+                request=request,
+            )
+
+        approved = self.approval_engine.approve_request(proposal_id, self.controller_id)
+        if not approved:
+            self._release_proposal_lock(proposal_id)
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_REJECTION,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "DENY",
+                    "reason": "APPROVAL_FAILED",
+                },
+            )
+
+        token = self.execution_token_manager.issue_token(
+            request_id=proposal_id,
+            device_id=device_id,
+            validity_minutes=15,
+        )
+        self.approval_engine.set_execution_token(proposal_id, token.token_id)
+
+        config = self.nib_store.get_config(proposal_id)
+        if config:
+            self.nib_store.update_config_status(
+                config_id=proposal_id,
+                status=ConfigStatus.APPROVED,
+                version=config.version,
+                approver=self.controller_id,
+                execution_token=token.token_id,
+                expiry=token.expires_at,
+            )
+
+        instruction_payload = {
+            "proposal_id": proposal_id,
+            "device_id": device_id,
+            "config_lines": config_lines,
+            "execution_token": token.to_dict(),
+            "execute_at": payload.get("execute_at"),
+        }
+
+        self.logger.info(
+            f"RC approved MEDIUM/LOW proposal {proposal_id} with token {token.token_id[:12]}...; "
+            f"dispatching execution instruction to LC {envelope.sender_id}"
+        )
+
+        execution_response = None
+        try:
+            if self.http_client:
+                execution_response = self.http_client.send(
+                    sender_id=self.controller_id,
+                    recipient_id=envelope.sender_id,
+                    message_type=MessageType.EXECUTION_INSTRUCTION,
+                    payload=instruction_payload,
+                    correlation_id=envelope.message_id,
+                )
+            elif self.message_bus:
+                execution_response = self.message_bus.send(
+                    sender_id=self.controller_id,
+                    recipient_id=envelope.sender_id,
+                    message_type=MessageType.EXECUTION_INSTRUCTION,
+                    payload=instruction_payload,
+                    correlation_id=envelope.message_id,
+                )
+        except Exception as exc:
+            self.logger.warning(f"Execution dispatch failed for {proposal_id}: {exc}")
+
+        if execution_response and execution_response.message_type == MessageType.EXECUTION_RESULT:
+            self.handle_execution_result(execution_response)
+        else:
+            self._record_dispatch_failure(proposal_id, "EXECUTION_DISPATCH_FAILED")
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_REJECTION,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "DENY",
+                    "reason": "EXECUTION_DISPATCH_FAILED",
+                },
+            )
+
+        return MessageEnvelope(
+            sender_id=self.controller_id,
+            recipient_id=envelope.sender_id,
+            message_type=MessageType.CONFIG_APPROVAL,
+            correlation_id=envelope.message_id,
+            payload={
+                "proposal_id": proposal_id,
+                "decision": "APPROVE",
+                "responder": self.controller_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "execution_instruction": instruction_payload,
+                "execution_result": execution_response.payload if execution_response else None,
+            },
+        )
+
+    def handle_execution_result(self, envelope: MessageEnvelope) -> MessageEnvelope:
+        """Persist LC execution result and update config state in NIB."""
+        payload = envelope.payload or {}
+        proposal_id = payload.get("proposal_id")
+        status = (payload.get("status") or "FAILED").upper()
+
+        if proposal_id:
+            self.logger.info(
+                f"RC received execution result for {proposal_id}: status={status} "
+                f"from LC {envelope.sender_id}; reason={payload.get('reason', 'N/A')}"
+            )
+
+            self.approval_engine.set_execution_result(proposal_id, payload)
+
+            config = self.nib_store.get_config(proposal_id)
+            if config:
+                mapped_status = {
+                    "EXECUTED": ConfigStatus.EXECUTED,
+                    "ROLLED_BACK": ConfigStatus.ROLLED_BACK,
+                    "DEGRADED": ConfigStatus.DEGRADED,
+                }.get(status, ConfigStatus.FAILED)
+                self.nib_store.update_config_status(
+                    config_id=proposal_id,
+                    status=mapped_status,
+                    version=config.version,
+                )
+
+            event = Event(
+                event_id=f"event-{uuid.uuid4().hex[:12]}",
+                event_type="EXECUTION",
+                actor=envelope.sender_id,
+                subject=proposal_id,
+                action="Execution result received by Regional Controller",
+                decision=status,
+                timestamp=datetime.now(timezone.utc),
+                details=payload,
+            )
+            self.nib_store.write_event(event)
+            if self._is_terminal_execution_status(status):
+                self._release_proposal_lock(proposal_id)
+
+        return MessageEnvelope(
+            sender_id=self.controller_id,
+            recipient_id=envelope.sender_id,
+            message_type=MessageType.HEARTBEAT,
+            correlation_id=envelope.message_id,
+            payload={
+                "status": "acknowledged",
+                "proposal_id": proposal_id,
+            },
+        )
+
+    def _handle_high_proposal_via_gc(
+        self,
+        envelope: MessageEnvelope,
+        proposal_id: str,
+        device_id: str,
+        config_lines: list,
+        request,
+    ) -> MessageEnvelope:
+        """Forward HIGH proposal to GC and dispatch execution on GC approval."""
+        if not self.http_client:
+            self._release_proposal_lock(proposal_id)
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_APPROVAL,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "ESCALATE",
+                    "reason": "HIGH_SENSITIVITY_REQUIRES_GLOBAL",
+                    "escalation_target": "global_cntl_1",
+                },
+            )
+
+        self.logger.info(
+            f"RC forwarding HIGH proposal {proposal_id} to GC for approval"
+        )
+
+        gc_response = self.http_client.send(
+            sender_id=self.controller_id,
+            recipient_id="global_cntl_1",
+            message_type=MessageType.CONFIG_PROPOSAL,
+            payload={
+                "proposal_id": proposal_id,
+                "device_id": device_id,
+                "config_lines": config_lines,
+                "suggested_sensitivity": "HIGH",
+                "origin": envelope.sender_id,
+                "region": self.region,
+            },
+            correlation_id=envelope.message_id,
+        )
+
+        if not gc_response or gc_response.message_type != MessageType.CONFIG_APPROVAL:
+            self._release_proposal_lock(proposal_id)
+            self.logger.warning(
+                f"GC did not approve HIGH proposal {proposal_id}; releasing lock"
+            )
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_REJECTION,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "DENY",
+                    "reason": "GC_NO_DECISION",
+                },
+            )
+
+        gc_payload = gc_response.payload or {}
+        if gc_payload.get("decision") != "APPROVE":
+            self.logger.info(
+                f"GC response for {proposal_id}: {gc_payload.get('decision')} "
+                f"({gc_payload.get('reason', 'no reason')})"
+            )
+            self._release_proposal_lock(proposal_id)
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_APPROVAL,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": gc_payload.get("decision", "DENY"),
+                    "reason": gc_payload.get("reason", "GC_DENIED"),
+                    "responder": gc_payload.get("responder", "global_cntl_1"),
+                },
+            )
+
+        token_payload = gc_payload.get("execution_token")
+        if not token_payload:
+            self._release_proposal_lock(proposal_id)
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_REJECTION,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "DENY",
+                    "reason": "GC_MISSING_EXECUTION_TOKEN",
+                },
+            )
+
+        approved = self.approval_engine.approve_request(
+            proposal_id,
+            gc_payload.get("responder", "global_cntl_1"),
+        )
+        if not approved:
+            self._release_proposal_lock(proposal_id)
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_REJECTION,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "DENY",
+                    "reason": "RC_COULD_NOT_RECORD_GC_APPROVAL",
+                },
+            )
+
+        self.approval_engine.set_execution_token(proposal_id, token_payload.get("token_id"))
+
+        config = self.nib_store.get_config(proposal_id)
+        if config:
+            self.nib_store.update_config_status(
+                config_id=proposal_id,
+                status=ConfigStatus.APPROVED,
+                version=config.version,
+                approver=gc_payload.get("responder", "global_cntl_1"),
+                execution_token=token_payload.get("token_id"),
+            )
+
+        self.logger.info(
+            f"RC received GC approval for {proposal_id}; "
+            f"token={token_payload.get('token_id', 'N/A')[:12]}...; "
+            f"now dispatching execution instruction to LC {envelope.sender_id}"
+        )
+
+        instruction_payload = {
+            "proposal_id": proposal_id,
+            "device_id": device_id,
+            "config_lines": config_lines,
+            "execution_token": token_payload,
+            "execute_at": None,
+        }
+
+        execution_response = None
+        try:
+            execution_response = self.http_client.send(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.EXECUTION_INSTRUCTION,
+                payload=instruction_payload,
+                correlation_id=envelope.message_id,
+            )
+        except Exception as exc:
+            self.logger.warning(f"Execution dispatch failed for {proposal_id}: {exc}")
+
+        if execution_response and execution_response.message_type == MessageType.EXECUTION_RESULT:
+            self.handle_execution_result(execution_response)
+        else:
+            self._record_dispatch_failure(proposal_id, "EXECUTION_DISPATCH_FAILED")
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_REJECTION,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "DENY",
+                    "reason": "EXECUTION_DISPATCH_FAILED",
+                },
+            )
+
+        return MessageEnvelope(
+            sender_id=self.controller_id,
+            recipient_id=envelope.sender_id,
+            message_type=MessageType.CONFIG_APPROVAL,
+            correlation_id=envelope.message_id,
+            payload={
+                "proposal_id": proposal_id,
+                "decision": "APPROVE",
+                "responder": gc_payload.get("responder", "global_cntl_1"),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "execution_instruction": instruction_payload,
+                "execution_result": execution_response.payload if execution_response else None,
+            },
+        )
+
+    def _acquire_proposal_lock(self, device_id: str, proposal_id: str) -> tuple[bool, Optional[str]]:
+        """Acquire per-device CONFIG_LOCK for proposal lifecycle."""
+        existing = self.nib_store.check_lock(device_id, LockType.CONFIG_LOCK)
+        if existing and existing.held_by != self.controller_id:
+            return False, f"LOCK_HELD_BY_{existing.held_by}"
+
+        if existing and existing.associated_request == proposal_id:
+            self.proposal_locks[proposal_id] = {
+                "lock_id": existing.lock_id,
+                "device_id": device_id,
+            }
+            return True, None
+
+        result = self.nib_store.acquire_lock(
+            subject_id=device_id,
+            lock_type=LockType.CONFIG_LOCK,
+            held_by=self.controller_id,
+            ttl_seconds=900,
+            associated_request=proposal_id,
+        )
+        if not result.success:
+            return False, result.error
+
+        self.proposal_locks[proposal_id] = {
+            "lock_id": result.data,
+            "device_id": device_id,
+        }
+        return True, None
+
+    def _release_proposal_lock(self, proposal_id: str):
+        """Release held CONFIG_LOCK for proposal, if any."""
+        lock_info = self.proposal_locks.get(proposal_id)
+        if not lock_info:
+            return
+
+        lock_id = lock_info.get("lock_id")
+        if lock_id:
+            self.nib_store.release_lock(lock_id=lock_id, held_by=self.controller_id)
+
+        self.proposal_locks.pop(proposal_id, None)
+
+    def _load_execution_shared_secret(self) -> bytes:
+        secret = os.getenv("PDSNO_EXECUTION_TOKEN_SECRET")
+        if secret:
+            return hashlib.sha256(secret.encode("utf-8")).digest()
+        return hashlib.sha256(f"pdsno-exec-token::{self.region}".encode("utf-8")).digest()
+
+    def _release_expired_proposal_locks(self):
+        """Release locks linked to requests already in terminal/expired state."""
+        self.approval_engine.cleanup_expired_requests()
+
+        terminal_states = {
+            ApprovalState.EXPIRED,
+            ApprovalState.REJECTED,
+            ApprovalState.EXECUTED,
+            ApprovalState.FAILED,
+            ApprovalState.ROLLED_BACK,
+        }
+
+        for proposal_id in list(self.proposal_locks.keys()):
+            request = self.approval_engine.get_request(proposal_id)
+            if not request or request.state in terminal_states:
+                self._release_proposal_lock(proposal_id)
+
+    @staticmethod
+    def _is_terminal_execution_status(status: str) -> bool:
+        return status in {"EXECUTED", "FAILED", "ROLLED_BACK", "DEGRADED", "ERROR", "SUCCESS"}
+
+    def _record_dispatch_failure(self, proposal_id: str, reason: str):
+        """Persist dispatch failures and release proposal lock."""
+        self.approval_engine.set_execution_result(
+            proposal_id,
+            {
+                "status": "FAILED",
+                "reason": reason,
+                "executor": self.controller_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
+        config = self.nib_store.get_config(proposal_id)
+        if config:
+            self.nib_store.update_config_status(
+                config_id=proposal_id,
+                status=ConfigStatus.FAILED,
+                version=config.version,
+            )
+
+        self._release_proposal_lock(proposal_id)
+
+    @staticmethod
+    def _max_sensitivity(left: SensitivityLevel, right: SensitivityLevel) -> SensitivityLevel:
+        rank = {
+            SensitivityLevel.LOW: 1,
+            SensitivityLevel.MEDIUM: 2,
+            SensitivityLevel.HIGH: 3,
+        }
+        return left if rank[left] >= rank[right] else right
 
     def start_rest_server_background(self):
         """Start the REST server in a background thread"""

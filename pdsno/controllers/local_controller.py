@@ -11,15 +11,27 @@ Extends BaseController with device discovery capabilities.
 Orchestrates ARP, ICMP, and SNMP scans, merges results, and reports to RC.
 """
 
+import hashlib
+import json
+import os
+import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from pdsno.controllers.base_controller import BaseController
 from pdsno.discovery import ARPScanner, ICMPScanner, SNMPScanner
-from pdsno.datastore import NIBStore, Device, DeviceStatus
+from pdsno.datastore import NIBStore, Device, DeviceStatus, Config, ConfigStatus, Event
+from pdsno.datastore.models import ConfigCategory
 from pdsno.controllers.context_manager import ContextManager
 from pdsno.communication.message_format import MessageEnvelope, MessageType
 from pdsno.communication.mqtt_client import ControllerMQTTClient
+from pdsno.config import (
+    ApprovalWorkflowEngine,
+    ConfigSensitivityClassifier,
+    ExecutionToken,
+    ExecutionTokenManager,
+    SensitivityLevel,
+)
 
 
 class LocalController(BaseController):
@@ -41,6 +53,7 @@ class LocalController(BaseController):
         context_manager: ContextManager,
         nib_store: NIBStore,
         message_bus=None,
+        http_client=None,
         simulate: bool = False,
         mqtt_broker: Optional[str] = None,
         mqtt_port: int = 1883,
@@ -56,8 +69,20 @@ class LocalController(BaseController):
         
         self.subnet = subnet
         self.message_bus = message_bus
+        self.http_client = http_client
         self.simulate = simulate
         self.last_scan_devices: Dict[str, Device] = {}  # MAC -> Device
+
+        self.sensitivity_classifier = ConfigSensitivityClassifier()
+        self.approval_engine = ApprovalWorkflowEngine(
+            controller_id=controller_id,
+            controller_role="local",
+            nib_store=nib_store,
+        )
+        self.execution_token_manager = ExecutionTokenManager(
+            controller_id=controller_id,
+            shared_secret=self._load_execution_shared_secret(),
+        )
         
         # MQTT client setup
         self.mqtt_client = None
@@ -307,6 +332,7 @@ class LocalController(BaseController):
                 last_seen=datetime.fromisoformat(dev_dict['last_seen']),
                 local_controller=self.controller_id,
                 region=self.region,
+                discovery_method=dev_dict.get('discovery_method'),
                 version=existing.version if existing else 0,
                 metadata={
                     'rtt_ms': dev_dict.get('rtt_ms'),
@@ -416,3 +442,218 @@ class LocalController(BaseController):
         
         # Store policy in context
         self.update_context({'region_policy': policy})
+
+    def submit_config_proposal(
+        self,
+        rc_id: str,
+        device_id: str,
+        config_lines: List[str],
+        rollback_payload: Optional[Dict] = None,
+        policy_version: Optional[str] = None,
+    ) -> Dict:
+        """Create and submit a configuration proposal to the Regional Controller."""
+        sensitivity = self.sensitivity_classifier.classify(config_lines)
+        request = self.approval_engine.create_request(
+            device_id=device_id,
+            config_lines=config_lines,
+            sensitivity=sensitivity,
+        )
+
+        submitted = self.approval_engine.submit_request(request.request_id)
+        if not submitted:
+            return {
+                "status": "failed",
+                "reason": "submit_failed",
+                "proposal_id": request.request_id,
+            }
+
+        config_record = Config(
+            config_id=request.request_id,
+            device_id=device_id,
+            config_hash=self._hash_config(config_lines),
+            category=self._to_config_category(sensitivity),
+            status=ConfigStatus.PENDING if request.state.value == "PENDING_APPROVAL" else ConfigStatus.APPROVED,
+            proposed_by=self.controller_id,
+            proposed_at=datetime.now(timezone.utc),
+            policy_version=policy_version,
+            rollback_payload=str(rollback_payload) if rollback_payload else None,
+            config_data=json.dumps(request.to_dict()),
+        )
+        create_result = self.nib_store.create_config_proposal(config_record)
+        if not create_result.success and "already exists" not in (create_result.error or "").lower():
+            return {
+                "status": "failed",
+                "reason": create_result.error,
+                "proposal_id": request.request_id,
+            }
+
+        if request.state.value == "APPROVED":
+            return {
+                "status": "approved",
+                "decision": "APPROVE",
+                "proposal_id": request.request_id,
+                "sensitivity": sensitivity.value,
+                "execution_mode": "auto_approved",
+            }
+
+        payload = {
+            "proposal_id": request.request_id,
+            "device_id": device_id,
+            "config_lines": config_lines,
+            "target_devices": [device_id],
+            "suggested_sensitivity": sensitivity.value,
+            "rollback_payload": rollback_payload or {},
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "policy_version": policy_version,
+            "origin": self.controller_id,
+        }
+
+        response = None
+        if self.http_client:
+            response = self.http_client.send(
+                sender_id=self.controller_id,
+                recipient_id=rc_id,
+                message_type=MessageType.CONFIG_PROPOSAL,
+                payload=payload,
+            )
+        elif self.message_bus:
+            response = self.message_bus.send(
+                sender_id=self.controller_id,
+                recipient_id=rc_id,
+                message_type=MessageType.CONFIG_PROPOSAL,
+                payload=payload,
+            )
+
+        response_payload = response.payload if response else {}
+        return {
+            "status": "submitted",
+            "proposal_id": request.request_id,
+            "sensitivity": sensitivity.value,
+            "response": response_payload,
+        }
+
+    def handle_execution_instruction(self, envelope: MessageEnvelope) -> MessageEnvelope:
+        """Validate execution token and simulate execution for approved config."""
+        payload = envelope.payload or {}
+        proposal_id = payload.get("proposal_id")
+        device_id = payload.get("device_id")
+        token_payload = payload.get("execution_token") or {}
+        config_lines = payload.get("config_lines") or []
+
+        self.logger.info(
+            f"LC received execution instruction for {proposal_id} on device {device_id}; "
+            f"token={token_payload.get('token_id', 'N/A')[:12]}..."
+        )
+
+        status = "FAILED"
+        reason = None
+
+        try:
+            token = ExecutionToken.from_dict(token_payload)
+            valid, error = self.execution_token_manager.verify_token(
+                token,
+                expected_device=device_id,
+            )
+            if not valid:
+                reason = error or "TOKEN_INVALID"
+                self.logger.warning(f"Token validation failed for {proposal_id}: {reason}")
+            else:
+                self.logger.info(f"LC executing config for {proposal_id} (token valid)")
+                self._mark_config_executing(proposal_id)
+                execution_result = self._execute_config_change(device_id, config_lines)
+                status = "EXECUTED" if execution_result.get("success") else "FAILED"
+                reason = execution_result.get("reason")
+                self.logger.info(
+                    f"LC execution completed for {proposal_id}: status={status}, "
+                    f"applied {execution_result.get('applied_lines', 0)} lines"
+                )
+        except Exception as exc:
+            reason = str(exc)
+            self.logger.warning(f"LC execution exception for {proposal_id}: {exc}")
+
+        self._mark_config_terminal_state(proposal_id, status)
+        self.approval_engine.set_execution_result(
+            proposal_id,
+            {
+                "status": status,
+                "reason": reason,
+                "executor": self.controller_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
+        event = Event(
+            event_id=f"event-{uuid.uuid4().hex[:12]}",
+            event_type="EXECUTION",
+            actor=self.controller_id,
+            subject=proposal_id,
+            action="Applied execution instruction" if status == "EXECUTED" else "Execution failed",
+            decision=status,
+            timestamp=datetime.now(timezone.utc),
+            details={
+                "proposal_id": proposal_id,
+                "device_id": device_id,
+                "status": status,
+                "reason": reason,
+            },
+        )
+        self.nib_store.write_event(event)
+
+        return MessageEnvelope(
+            sender_id=self.controller_id,
+            recipient_id=envelope.sender_id,
+            message_type=MessageType.EXECUTION_RESULT,
+            correlation_id=envelope.message_id,
+            payload={
+                "proposal_id": proposal_id,
+                "executor": self.controller_id,
+                "status": status,
+                "reason": reason,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
+    def _load_execution_shared_secret(self) -> bytes:
+        secret = os.getenv("PDSNO_EXECUTION_TOKEN_SECRET")
+        if secret:
+            return hashlib.sha256(secret.encode("utf-8")).digest()
+        return hashlib.sha256(f"pdsno-exec-token::{self.region}".encode("utf-8")).digest()
+
+    @staticmethod
+    def _hash_config(config_lines: List[str]) -> str:
+        return hashlib.sha256("\n".join(config_lines).encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _to_config_category(sensitivity: SensitivityLevel) -> ConfigCategory:
+        return {
+            SensitivityLevel.LOW: ConfigCategory.LOW,
+            SensitivityLevel.MEDIUM: ConfigCategory.MEDIUM,
+            SensitivityLevel.HIGH: ConfigCategory.HIGH,
+        }[sensitivity]
+
+    def _mark_config_executing(self, proposal_id: str):
+        config = self.nib_store.get_config(proposal_id)
+        if not config:
+            return
+        self.nib_store.update_config_status(
+            config_id=proposal_id,
+            status=ConfigStatus.EXECUTING,
+            version=config.version,
+        )
+
+    def _mark_config_terminal_state(self, proposal_id: str, status: str):
+        config = self.nib_store.get_config(proposal_id)
+        if not config:
+            return
+        mapped_status = ConfigStatus.EXECUTED if status == "EXECUTED" else ConfigStatus.FAILED
+        self.nib_store.update_config_status(
+            config_id=proposal_id,
+            status=mapped_status,
+            version=config.version,
+        )
+
+    def _execute_config_change(self, device_id: str, config_lines: List[str]) -> Dict:
+        # Actual device execution is integrated in later phases; this preserves end-to-end flow.
+        if not device_id or not config_lines:
+            return {"success": False, "reason": "MISSING_EXECUTION_INPUT"}
+        return {"success": True, "applied_lines": len(config_lines)}

@@ -23,9 +23,10 @@ from typing import Dict
 from pdsno.controllers.base_controller import BaseController
 from pdsno.communication.message_format import MessageEnvelope, MessageType
 from pdsno.datastore import NIBStore
-from pdsno.datastore.models import Controller, Event
+from pdsno.datastore.models import Controller, Event, ConfigStatus
 from pdsno.controllers.context_manager import ContextManager
 from pdsno.communication.rest_server import ControllerRESTServer
+from pdsno.config import ConfigSensitivityClassifier, ExecutionTokenManager
 
 
 class GlobalController(BaseController):
@@ -98,8 +99,112 @@ class GlobalController(BaseController):
         # Phase 6D: Key distribution (optional)
         self.key_manager = None
         self.key_protocol = None
+        self.sensitivity_classifier = ConfigSensitivityClassifier()
         
         self.logger.info(f"Global Controller {controller_id} initialized")
+
+    def handle_config_proposal(self, envelope: MessageEnvelope) -> MessageEnvelope:
+        """Handle HIGH config proposals escalated by Regional Controllers."""
+        payload = envelope.payload or {}
+        proposal_id = payload.get("proposal_id")
+        device_id = payload.get("device_id")
+        config_lines = payload.get("config_lines") or []
+        region = payload.get("region")
+        if not region:
+            sender_parts = (envelope.sender_id or "").split("_")
+            region = sender_parts[2] if len(sender_parts) > 2 else "zone-A"
+
+        if not proposal_id or not device_id:
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_REJECTION,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "DENY",
+                    "reason": "MISSING_REQUIRED_FIELDS",
+                },
+            )
+
+        sensitivity = self.sensitivity_classifier.classify(config_lines)
+        if sensitivity.value != "HIGH":
+            return MessageEnvelope(
+                sender_id=self.controller_id,
+                recipient_id=envelope.sender_id,
+                message_type=MessageType.CONFIG_REJECTION,
+                correlation_id=envelope.message_id,
+                payload={
+                    "proposal_id": proposal_id,
+                    "decision": "DENY",
+                    "reason": "NOT_HIGH_SENSITIVITY",
+                },
+            )
+
+        token_manager = ExecutionTokenManager(
+            controller_id=self.controller_id,
+            shared_secret=self._execution_token_secret_for_region(region),
+        )
+        token = token_manager.issue_token(
+            request_id=proposal_id,
+            device_id=device_id,
+            validity_minutes=5,
+        )
+
+        config = self.nib_store.get_config(proposal_id)
+        if config:
+            self.nib_store.update_config_status(
+                config_id=proposal_id,
+                status=ConfigStatus.APPROVED,
+                version=config.version,
+                approver=self.controller_id,
+                execution_token=token.token_id,
+                expiry=token.expires_at,
+            )
+
+        ttl_minutes = int((token.expires_at - token.issued_at).total_seconds() // 60)
+        self.logger.info(
+            f"GC approved HIGH proposal {proposal_id} for device {device_id}; "
+            f"issued token {token.token_id[:12]}... (valid {ttl_minutes}m)"
+        )
+
+        self.nib_store.write_event(
+            Event(
+                event_id=f"event-{uuid.uuid4().hex[:12]}",
+                event_type="CONFIG_APPROVED",
+                actor=self.controller_id,
+                subject=proposal_id,
+                action="GC approved HIGH config proposal",
+                decision="APPROVED",
+                timestamp=datetime.now(timezone.utc),
+                details={
+                    "proposal_id": proposal_id,
+                    "token_id": token.token_id,
+                    "recipient_rc": envelope.sender_id,
+                },
+            )
+        )
+
+        return MessageEnvelope(
+            sender_id=self.controller_id,
+            recipient_id=envelope.sender_id,
+            message_type=MessageType.CONFIG_APPROVAL,
+            correlation_id=envelope.message_id,
+            payload={
+                "proposal_id": proposal_id,
+                "decision": "APPROVE",
+                "responder": self.controller_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "execution_token": token.to_dict(),
+            },
+        )
+
+    @staticmethod
+    def _execution_token_secret_for_region(region: str) -> bytes:
+        env_secret = os.getenv("PDSNO_EXECUTION_TOKEN_SECRET")
+        if env_secret:
+            return hashlib.sha256(env_secret.encode("utf-8")).digest()
+        return hashlib.sha256(f"pdsno-exec-token::{region}".encode("utf-8")).digest()
     
     def handle_validation_request(self, envelope: MessageEnvelope) -> MessageEnvelope:
         """

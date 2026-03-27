@@ -6,7 +6,7 @@
       "prefix": "clab",
       "mgmt": {
         "network": "pdsno-dist-mgmt",
-        "bridge": "br-ad1761f1b10d",
+        "bridge": "br-a8da1bec92fa",
         "ipv4-subnet": "172.20.20.0/24",
         "ipv4-gw": "172.20.20.1",
         "external-access": true
@@ -32,7 +32,7 @@
       "mgmt-ipv6-prefix-length": 0,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-ad1761f1b10d",
+        "clab-mgmt-net-bridge": "br-a8da1bec92fa",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/schoolboy/PDSNO/containerlab/topologies/clab-pdsno-distributed-lab/frr-leaf-1",
@@ -63,7 +63,7 @@
       "mgmt-ipv6-prefix-length": 0,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-ad1761f1b10d",
+        "clab-mgmt-net-bridge": "br-a8da1bec92fa",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/schoolboy/PDSNO/containerlab/topologies/clab-pdsno-distributed-lab/frr-leaf-2",
@@ -94,7 +94,7 @@
       "mgmt-ipv6-prefix-length": 0,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-ad1761f1b10d",
+        "clab-mgmt-net-bridge": "br-a8da1bec92fa",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/schoolboy/PDSNO/containerlab/topologies/clab-pdsno-distributed-lab/frr-leaf-4",
@@ -125,7 +125,7 @@
       "mgmt-ipv6-prefix-length": 0,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-ad1761f1b10d",
+        "clab-mgmt-net-bridge": "br-a8da1bec92fa",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/schoolboy/PDSNO/containerlab/topologies/clab-pdsno-distributed-lab/frr-spine",
@@ -156,7 +156,7 @@
       "mgmt-ipv6-prefix-length": 0,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-ad1761f1b10d",
+        "clab-mgmt-net-bridge": "br-a8da1bec92fa",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/schoolboy/PDSNO/containerlab/topologies/clab-pdsno-distributed-lab/pdsno-gc",
@@ -187,7 +187,7 @@
       "mgmt-ipv6-prefix-length": 0,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-ad1761f1b10d",
+        "clab-mgmt-net-bridge": "br-a8da1bec92fa",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/schoolboy/PDSNO/containerlab/topologies/clab-pdsno-distributed-lab/pdsno-lc",
@@ -218,7 +218,7 @@
       "mgmt-ipv6-prefix-length": 0,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-ad1761f1b10d",
+        "clab-mgmt-net-bridge": "br-a8da1bec92fa",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/schoolboy/PDSNO/containerlab/topologies/clab-pdsno-distributed-lab/pdsno-rc",
@@ -239,13 +239,13 @@
         "a": {
           "node": "pdsno-lc",
           "interface": "eth1",
-          "mac": "aa:c1:ab:6e:36:eb",
+          "mac": "aa:c1:ab:4d:d2:fd",
           "peer": "z"
         },
         "z": {
           "node": "frr-spine",
           "interface": "eth1",
-          "mac": "aa:c1:ab:5b:2a:37",
+          "mac": "aa:c1:ab:50:32:d0",
           "peer": "a"
         }
       }
@@ -255,13 +255,13 @@
         "a": {
           "node": "pdsno-lc",
           "interface": "eth2",
-          "mac": "aa:c1:ab:ee:be:fd",
+          "mac": "aa:c1:ab:a1:01:be",
           "peer": "z"
         },
         "z": {
           "node": "frr-leaf-1",
           "interface": "eth1",
-          "mac": "aa:c1:ab:bd:da:10",
+          "mac": "aa:c1:ab:d7:bd:68",
           "peer": "a"
         }
       }
@@ -271,13 +271,13 @@
         "a": {
           "node": "pdsno-lc",
           "interface": "eth3",
-          "mac": "aa:c1:ab:62:a6:26",
+          "mac": "aa:c1:ab:c0:56:c4",
           "peer": "z"
         },
         "z": {
           "node": "frr-leaf-2",
           "interface": "eth1",
-          "mac": "aa:c1:ab:53:f0:a4",
+          "mac": "aa:c1:ab:71:bf:58",
           "peer": "a"
         }
       }
@@ -287,13 +287,13 @@
         "a": {
           "node": "pdsno-lc",
           "interface": "eth4",
-          "mac": "aa:c1:ab:22:22:72",
+          "mac": "aa:c1:ab:6a:36:87",
           "peer": "z"
         },
         "z": {
           "node": "frr-leaf-4",
           "interface": "eth1",
-          "mac": "aa:c1:ab:71:08:f4",
+          "mac": "aa:c1:ab:b4:80:11",
           "peer": "a"
         }
       }

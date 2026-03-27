@@ -258,6 +258,26 @@ class TestLocalControllerDiscovery:
         # May be 0 or 1 depending on whether devices were found
         assert len(report_received) >= 0
 
+    def test_icmp_discovery_method_persisted(self, lc, nib_store):
+        """ICMP-enriched devices should persist discovery_method in DB row."""
+        now = datetime.now(timezone.utc).isoformat()
+        discovered = {
+            'ip': '192.168.1.10',
+            'mac': 'aa:bb:cc:dd:ee:10',
+            'last_seen': now,
+            'reachable': True,
+            'rtt_ms': 1.2,
+            'discovery_method': 'icmp',
+            'protocol': 'ICMP'
+        }
+
+        lc._write_devices_to_nib([discovered])
+
+        stored = nib_store.get_device_by_mac('aa:bb:cc:dd:ee:10')
+        assert stored is not None
+        assert stored.discovery_method == 'icmp'
+        assert stored.metadata.get('discovery_method') == 'icmp'
+
 
 class TestDeltaDetection:
     """Test device delta detection logic"""

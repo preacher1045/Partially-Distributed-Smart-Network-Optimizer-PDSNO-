@@ -111,12 +111,17 @@ class ExecutionTokenManager:
         if len(shared_secret) < 32:
             raise ValueError("Shared secret must be at least 32 bytes")
 
+        # Controller ID should be unique across the system 
+        # (e.g. "regional_cntl_zone-A_1")
         self.controller_id = controller_id
+        # Shared secret should be securely generated and distributed
         self.shared_secret = shared_secret
+        # Logger for token operations
         self.logger = logging.getLogger(f"{__name__}.{controller_id}")
 
         # Track used nonces (replay prevention)
         self.used_nonces: Set[str] = set()
+        # Counter for periodic nonce cleanup
         self.nonce_cleanup_counter = 0
 
     def issue_token(
@@ -136,6 +141,7 @@ class ExecutionTokenManager:
         Returns:
             Signed execution token
         """
+        # Determine token validity period
         validity = validity_minutes or self.DEFAULT_TOKEN_LIFETIME_MINUTES
 
         now = datetime.now(timezone.utc)

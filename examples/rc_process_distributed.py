@@ -33,6 +33,7 @@ import sys
 import time
 import logging
 import requests
+import hashlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -43,6 +44,7 @@ from pdsno.datastore import NIBStore
 from pdsno.communication.rest_server import ControllerRESTServer
 from pdsno.communication.http_client import ControllerHTTPClient
 from pdsno.communication.message_format import MessageType
+from pdsno.security.message_auth import MessageAuthenticator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,6 +62,16 @@ GC_ID        = os.environ.get("PDSNO_GC_ID",        "global_cntl_1")
 REST_PORT    = int(os.environ.get("PDSNO_REST_PORT", "8002"))
 REGION       = os.environ.get("PDSNO_REGION",       "zone-A")
 TEMP_ID      = os.environ.get("PDSNO_RC_TEMP_ID",   "temp-rc-zone-a")
+LC_URL       = os.environ.get("PDSNO_LC_URL",       "http://172.20.20.7:8003")
+MSG_SIGNING_SECRET = os.environ.get(
+    "PDSNO_MESSAGE_SIGNING_SECRET",
+    "pdsno-message-signing-secret-change-in-production",
+)
+
+
+def _derive_message_signing_key(secret: str) -> bytes:
+    """Derive a fixed-length key suitable for HMAC signing."""
+    return hashlib.sha256(secret.encode("utf-8")).digest()
 
 
 # ── Startup helpers ───────────────────────────────────────────────────────────
@@ -122,6 +134,7 @@ def main():
     logger.info(f"  Temp ID  : {TEMP_ID}")
     logger.info(f"  Region   : {REGION}")
     logger.info(f"  GC URL   : {GC_URL}")
+    logger.info(f"  LC URL   : {LC_URL}")
     logger.info(f"  REST port: {REST_PORT}")
     logger.info(f"  DB path  : {DB_PATH}")
 
@@ -136,7 +149,14 @@ def main():
     # Step 2 — initialise infrastructure
     context_mgr = ContextManager(CONTEXT_PATH)
     nib_store   = NIBStore(DB_PATH)
-    http_client = ControllerHTTPClient()
+
+    # RC starts as TEMP_ID and then receives assigned ID from GC.
+    authenticator = MessageAuthenticator(
+        shared_secret=_derive_message_signing_key(MSG_SIGNING_SECRET),
+        controller_id=TEMP_ID,
+    )
+
+    http_client = ControllerHTTPClient(authenticator=authenticator)
     http_client.register_controller(GC_ID, GC_URL)
 
     rc = RegionalController(
@@ -163,17 +183,44 @@ def main():
     assigned_id = rc.controller_id
     logger.info(f"Validation successful — assigned ID: {assigned_id}")
 
+    # Keep signer identity aligned with dynamically assigned RC identity.
+    authenticator.controller_id = assigned_id
+
+    # Register LC endpoint used for execution instruction callbacks.
+    if LC_URL:
+        http_client.register_controller("local_cntl_zone-a_001", LC_URL)
+        logger.info(f"Registered default LC endpoint local_cntl_zone-a_001 -> {LC_URL}")
+
     # Step 4 — start REST server to receive discovery reports from LCs
     rest_server = ControllerRESTServer(
         controller_id=assigned_id,
         host="0.0.0.0",   # Must be 0.0.0.0 inside container
         port=REST_PORT,
+        authenticator=authenticator,
     )
 
     # Register handler for incoming LC discovery reports
     rest_server.register_handler(
         MessageType.DISCOVERY_REPORT,
         handle_discovery_report,
+    )
+
+    def handle_config_proposal(envelope):
+        # Ensure sender has a route for RC -> LC execution instruction callbacks.
+        sender_id = envelope.sender_id
+        if sender_id and sender_id not in http_client.controller_registry and LC_URL:
+            http_client.register_controller(sender_id, LC_URL)
+            logger.info(f"Dynamically registered LC endpoint {sender_id} -> {LC_URL}")
+        return rc.handle_config_proposal(envelope)
+
+    rest_server.register_handler(
+        MessageType.CONFIG_PROPOSAL,
+        handle_config_proposal,
+    )
+
+    rest_server.register_handler(
+        MessageType.EXECUTION_RESULT,
+        rc.handle_execution_result,
     )
 
     logger.info(f"Starting REST server on 0.0.0.0:{REST_PORT}")

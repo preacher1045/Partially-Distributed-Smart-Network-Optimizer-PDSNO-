@@ -35,6 +35,7 @@ import sys
 import time
 import logging
 import requests
+import hashlib
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -44,6 +45,8 @@ from pdsno.controllers.local_controller import LocalController
 from pdsno.controllers.context_manager import ContextManager
 from pdsno.datastore import NIBStore
 from pdsno.communication.message_format import MessageType
+from pdsno.communication.rest_server import ControllerRESTServer
+from pdsno.security.message_auth import MessageAuthenticator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -62,6 +65,18 @@ LC_ID        = os.environ.get("PDSNO_LC_ID",        "local_cntl_zone-a_001")
 RC_URL       = os.environ.get("PDSNO_RC_URL",       "http://127.0.0.1:8002")
 RC_ID        = os.environ.get("PDSNO_RC_ID",        "regional_cntl_zone-A_1")
 DISCOVERY_INTERVAL = int(os.environ.get("PDSNO_DISCOVERY_INTERVAL", "30"))
+LC_REST_PORT = int(os.environ.get("PDSNO_LC_REST_PORT", "8003"))
+MSG_SIGNING_SECRET = os.environ.get(
+    "PDSNO_MESSAGE_SIGNING_SECRET",
+    "pdsno-message-signing-secret-change-in-production",
+)
+
+AUTHENTICATOR = None
+
+
+def _derive_message_signing_key(secret: str) -> bytes:
+    """Derive a fixed-length key suitable for HMAC signing."""
+    return hashlib.sha256(secret.encode("utf-8")).digest()
 
 
 # ── HTTP report sender ────────────────────────────────────────────────────────
@@ -98,6 +113,9 @@ def http_send_discovery_report(rc_url: str, lc_id: str, region: str,
             "inactive_count": inactive_count,
         },
     }
+
+    if AUTHENTICATOR:
+        payload = AUTHENTICATOR.sign_message(payload)
 
     try:
         resp = requests.post(
@@ -187,6 +205,7 @@ def main():
     logger.info(f"  Subnet   : {SUBNET}")
     logger.info(f"  Region   : {REGION}")
     logger.info(f"  RC URL   : {RC_URL}")
+    logger.info(f"  REST port: {LC_REST_PORT}")
     logger.info(f"  DB path  : {DB_PATH}")
     logger.info(f"  Interval : {DISCOVERY_INTERVAL}s")
 
@@ -205,6 +224,12 @@ def main():
     context_mgr = ContextManager(CONTEXT_PATH)
     nib_store   = NIBStore(DB_PATH)
 
+    global AUTHENTICATOR
+    AUTHENTICATOR = MessageAuthenticator(
+        shared_secret=_derive_message_signing_key(MSG_SIGNING_SECRET),
+        controller_id=LC_ID,
+    )
+
     # message_bus=None — we handle discovery reporting ourselves over HTTP
     lc = LocalController(
         controller_id=LC_ID,
@@ -214,6 +239,20 @@ def main():
         nib_store=nib_store,
         message_bus=None,
     )
+
+    # Expose LC REST endpoint for RC execution instructions.
+    rest_server = ControllerRESTServer(
+        controller_id=LC_ID,
+        host="0.0.0.0",
+        port=LC_REST_PORT,
+        authenticator=AUTHENTICATOR,
+    )
+    rest_server.register_handler(
+        MessageType.EXECUTION_INSTRUCTION,
+        lc.handle_execution_instruction,
+    )
+    rest_server.start_background()
+    logger.info(f"LC execution endpoint available at 0.0.0.0:{LC_REST_PORT}")
 
     logger.info(f"LC {LC_ID} ready. Starting discovery loop.")
 

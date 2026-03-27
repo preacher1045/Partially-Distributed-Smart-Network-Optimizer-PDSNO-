@@ -31,6 +31,7 @@ import os
 import sys
 import time
 import logging
+import hashlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -40,6 +41,7 @@ from pdsno.controllers.context_manager import ContextManager
 from pdsno.datastore import NIBStore
 from pdsno.communication.rest_server import ControllerRESTServer
 from pdsno.communication.message_format import MessageType
+from pdsno.security.message_auth import MessageAuthenticator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,6 +56,15 @@ DB_PATH      = os.environ.get("PDSNO_DB_PATH",      "./sim_distributed/pdsno.db"
 CONTEXT_PATH = os.environ.get("PDSNO_CONTEXT_PATH", "./sim_distributed/gc_context.yaml")
 REST_PORT    = int(os.environ.get("PDSNO_REST_PORT", "8001"))
 GC_ID        = os.environ.get("PDSNO_GC_ID",        "global_cntl_1")
+MSG_SIGNING_SECRET = os.environ.get(
+    "PDSNO_MESSAGE_SIGNING_SECRET",
+    "pdsno-message-signing-secret-change-in-production",
+)
+
+
+def _derive_message_signing_key(secret: str) -> bytes:
+    """Derive a fixed-length key suitable for HMAC signing."""
+    return hashlib.sha256(secret.encode("utf-8")).digest()
 
 
 def main():
@@ -76,12 +87,18 @@ def main():
         nib_store=nib_store,
     )
 
+    authenticator = MessageAuthenticator(
+        shared_secret=_derive_message_signing_key(MSG_SIGNING_SECRET),
+        controller_id=GC_ID,
+    )
+
     # REST server — listens for VALIDATION_REQUEST and CHALLENGE_RESPONSE
     # from Regional Controllers attempting to join the network.
     rest_server = ControllerRESTServer(
         controller_id=GC_ID,
         host="0.0.0.0",   # Must bind to 0.0.0.0 inside container (not localhost)
         port=REST_PORT,
+        authenticator=authenticator,
     )
 
     rest_server.register_handler(
@@ -91,6 +108,10 @@ def main():
     rest_server.register_handler(
         MessageType.CHALLENGE_RESPONSE,
         gc.handle_challenge_response,
+    )
+    rest_server.register_handler(
+        MessageType.CONFIG_PROPOSAL,
+        gc.handle_config_proposal,
     )
 
     logger.info(f"Starting REST server on 0.0.0.0:{REST_PORT}")

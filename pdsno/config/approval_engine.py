@@ -52,7 +52,18 @@ from pdsno.config.sensitivity_classifier import SensitivityLevel
 
 
 class ApprovalState(Enum):
-    """Configuration approval states"""
+    """
+    Configuration approval states
+        - DRAFT: Created but not yet submitted for approval
+        - PENDING_APPROVAL: Submitted and awaiting approval
+        - APPROVED: Approved and ready for execution
+        - REJECTED: Rejected by approver
+        - EXPIRED: Not approved within timeout window
+        - EXECUTED: Execution instruction sent and marked as executed
+        - FAILED: Execution instruction sent but failed
+        - ROLLED_BACK: Execution failed and changes were rolled back
+    
+    """
     DRAFT = "DRAFT"
     PENDING_APPROVAL = "PENDING_APPROVAL"
     APPROVED = "APPROVED"
@@ -175,20 +186,47 @@ class ApprovalWorkflowEngine:
             return
         try:
             # Store serialised request as a config record in the NIB
-            from pdsno.datastore.models import Config, ConfigStatus
-            config = Config(
-                config_id=request.request_id,
-                device_id=request.device_id,
-                config_data=json.dumps(request.to_dict()),
-                status=ConfigStatus.PROPOSED if request.state == ApprovalState.PENDING_APPROVAL
-                       else ConfigStatus.APPROVED if request.state == ApprovalState.APPROVED
-                       else ConfigStatus.PROPOSED,
-                proposed_by=request.requester_id,
-                approved_by=request.approvers[-1] if request.approvers else None,
-                proposed_at=request.submitted_at or request.created_at,
-                approved_at=request.approved_at,
-            )
-            self.nib_store.upsert_config(config)
+            from pdsno.datastore.models import Config, ConfigCategory, ConfigStatus
+
+            status_map = {
+                ApprovalState.DRAFT: ConfigStatus.PENDING,
+                ApprovalState.PENDING_APPROVAL: ConfigStatus.PENDING,
+                ApprovalState.APPROVED: ConfigStatus.APPROVED,
+                ApprovalState.REJECTED: ConfigStatus.DENIED,
+                ApprovalState.EXPIRED: ConfigStatus.DENIED,
+                ApprovalState.EXECUTED: ConfigStatus.EXECUTED,
+                ApprovalState.FAILED: ConfigStatus.FAILED,
+                ApprovalState.ROLLED_BACK: ConfigStatus.ROLLED_BACK,
+            }
+            category_map = {
+                SensitivityLevel.LOW: ConfigCategory.LOW,
+                SensitivityLevel.MEDIUM: ConfigCategory.MEDIUM,
+                SensitivityLevel.HIGH: ConfigCategory.HIGH,
+            }
+
+            existing = self.nib_store.get_config(request.request_id)
+            if not existing:
+                config = Config(
+                    config_id=request.request_id,
+                    device_id=request.device_id,
+                    config_data=json.dumps(request.to_dict()),
+                    status=status_map.get(request.state, ConfigStatus.PENDING),
+                    category=category_map.get(request.sensitivity, ConfigCategory.LOW),
+                    proposed_by=request.requester_id,
+                    approved_by=request.approvers[-1] if request.approvers else None,
+                    execution_token=request.execution_token,
+                    proposed_at=request.submitted_at or request.created_at,
+                    approved_at=request.approved_at,
+                )
+                self.nib_store.create_config_proposal(config)
+            else:
+                self.nib_store.update_config_status(
+                    config_id=request.request_id,
+                    status=status_map.get(request.state, ConfigStatus.PENDING),
+                    version=existing.version,
+                    approver=request.approvers[-1] if request.approvers else None,
+                    execution_token=request.execution_token,
+                )
         except Exception as e:
             # Non-fatal — log and continue. In-memory state still valid.
             self.logger.warning(f"Could not persist request {request.request_id} to NIB: {e}")
@@ -200,8 +238,13 @@ class ApprovalWorkflowEngine:
         try:
             config = self.nib_store.get_config(request_id)
             if config and config.config_data:
-                data = json.loads(config.config_data)
-                return ApprovalRequest.from_dict(data)
+                try:
+                    data = json.loads(config.config_data)
+                    return ApprovalRequest.from_dict(data)
+                except json.JSONDecodeError:
+                    self.logger.debug(
+                        f"Config {request_id} has non-JSON config_data; skipping request reconstruction"
+                    )
         except Exception as e:
             self.logger.warning(f"Could not load request {request_id} from NIB: {e}")
         return None
@@ -382,6 +425,46 @@ class ApprovalWorkflowEngine:
                 count += 1
                 self.logger.info(f"Expired request {request.request_id}")
         return count
+
+    def set_execution_token(self, request_id: str, token_id: str) -> bool:
+        """Attach execution token ID to an approved request and persist it."""
+        request = self.get_request(request_id)
+        if not request:
+            self.logger.error(f"Request {request_id} not found")
+            return False
+
+        if request.state != ApprovalState.APPROVED:
+            self.logger.error(
+                f"Request {request_id} must be APPROVED before setting execution token "
+                f"(current: {request.state.value})"
+            )
+            return False
+
+        request.execution_token = token_id
+        self.requests[request_id] = request
+        self._persist_request(request)
+        return True
+
+    def set_execution_result(self, request_id: str, result: Dict) -> bool:
+        """Persist execution result and transition request to terminal state."""
+        request = self.get_request(request_id)
+        if not request:
+            self.logger.error(f"Request {request_id} not found")
+            return False
+
+        status = (result or {}).get("status", "").upper()
+        if status in ("EXECUTED", "SUCCESS"):
+            request.state = ApprovalState.EXECUTED
+        elif status in ("FAILED", "ERROR", "DEGRADED"):
+            request.state = ApprovalState.FAILED
+        elif status == "ROLLED_BACK":
+            request.state = ApprovalState.ROLLED_BACK
+
+        request.execution_result = result
+        request.executed_at = datetime.now(timezone.utc)
+        self.requests[request_id] = request
+        self._persist_request(request)
+        return True
 
     # ── Internal helpers ─────────────────────────────────────────────────────
 

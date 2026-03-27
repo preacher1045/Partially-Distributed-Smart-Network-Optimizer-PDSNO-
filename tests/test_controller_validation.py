@@ -228,5 +228,59 @@ class TestGlobalController:
         assert gc.controller_sequence["regional"] == initial_seq + 1
 
 
+class TestRegionalControllerValidation:
+    """Test RC delegated validation of local controllers."""
+
+    def test_rc_validates_local_controller_and_writes_nib(self, rc, nib_store):
+        envelope = MessageEnvelope(
+            sender_id="temp-lc-test-001",
+            recipient_id=rc.controller_id,
+            message_type=MessageType.VALIDATION_REQUEST,
+            payload={
+                "temp_id": "temp-lc-test-001",
+                "controller_type": "local",
+                "region": "zone-A",
+                "public_key": "ed25519-lc-pubkey-placeholder",
+                "bootstrap_token": "unused-in-poc",
+                "metadata": {
+                    "hostname": "lc-zone-a",
+                    "capabilities": ["discovery"]
+                }
+            }
+        )
+
+        response = rc.handle_validation_request(envelope)
+
+        assert response.message_type == MessageType.VALIDATION_RESULT
+        assert response.payload["status"] == "APPROVED"
+        assert response.payload["assigned_id"].startswith("local_cntl_zone-A_")
+
+        stored = nib_store.get_controller(response.payload["assigned_id"])
+        assert stored is not None
+        assert stored.role == "local"
+        assert stored.region == "zone-A"
+        assert stored.validated_by == rc.controller_id
+
+    def test_rc_rejects_local_validation_region_mismatch(self, rc):
+        envelope = MessageEnvelope(
+            sender_id="temp-lc-test-002",
+            recipient_id=rc.controller_id,
+            message_type=MessageType.VALIDATION_REQUEST,
+            payload={
+                "temp_id": "temp-lc-test-002",
+                "controller_type": "local",
+                "region": "zone-B",
+                "public_key": "ed25519-lc-pubkey-placeholder",
+                "metadata": {}
+            }
+        )
+
+        response = rc.handle_validation_request(envelope)
+
+        assert response.message_type == MessageType.VALIDATION_RESULT
+        assert response.payload["status"] == "REJECTED"
+        assert response.payload["reason"] == "REGION_MISMATCH"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

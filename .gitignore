@@ -141,11 +141,4 @@ docker-compose.override.yml
 *.ipynb_checkpoints/
 *.pkl
 *.pickle
-
-<<<<<<< HEAD
 docs/not_for_github/
-=======
-sim_phase5/
-sim_phase6a/
-sim_distributed/
->>>>>>> 924a240 (feat: add distributed simulation updates and protocol fixes)

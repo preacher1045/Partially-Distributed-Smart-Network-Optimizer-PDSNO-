@@ -275,14 +275,16 @@ class NIBStore:
         self._ensure_column("locks", "status", "TEXT NOT NULL DEFAULT 'ACTIVE'")
 
         # Backfill aliases where older and newer naming overlap.
-        with self._get_connection() as conn:
-            conn.execute(
-                """
-                UPDATE devices
-                SET local_controller = COALESCE(local_controller, managed_by_lc)
-                WHERE managed_by_lc IS NOT NULL
-                """
-            )
+        devices_cols = self._table_columns("devices")
+        if "managed_by_lc" in devices_cols and "local_controller" in devices_cols:
+            with self._get_connection() as conn:
+                conn.execute(
+                    """
+                    UPDATE devices
+                    SET local_controller = COALESCE(local_controller, managed_by_lc)
+                    WHERE managed_by_lc IS NOT NULL
+                    """
+                )
 
         # Helpful indexes for aligned columns.
         with self._get_connection() as conn:
@@ -337,8 +339,12 @@ class NIBStore:
         now = datetime.now(timezone.utc).isoformat()
 
         with self._get_connection() as conn:
-<<<<<<< HEAD
+            # Check if device exists
             existing = self.get_device_by_mac(device.mac_address)
+
+            discovery_method = device.discovery_method
+            if not discovery_method and isinstance(device.metadata, dict):
+                discovery_method = device.metadata.get("discovery_method")
 
             if existing:
                 cursor = conn.execute(
@@ -356,69 +362,10 @@ class NIBStore:
                         device.status.value,
                         device.last_seen.isoformat() if device.last_seen else now,
                         now, device.local_controller, device.region,
-                        device.discovery_method,
+                        discovery_method,
                         json.dumps(device.metadata),
                         device.mac_address, device.version
                     )
-=======
-            devices_cols = self._table_columns("devices")
-
-            # Check if device exists
-            existing = self.get_device_by_mac(device.mac_address)
-
-            # Prefer explicit model fields when present, fall back to metadata.
-            local_controller = getattr(device, 'local_controller', None) or device.managed_by_lc
-            discovery_method = getattr(device, 'discovery_method', None)
-            if not discovery_method and isinstance(device.metadata, dict):
-                discovery_method = device.metadata.get('discovery_method')
-
-            firmware_version = getattr(device, 'firmware_version', None)
-            last_updated = datetime.now(timezone.utc).isoformat()
-            
-            if existing:
-                # Update with version check.
-                update_fields = [
-                    "ip_address = ?",
-                    "hostname = ?",
-                    "vendor = ?",
-                    "device_type = ?",
-                    "status = ?",
-                    "last_seen = ?",
-                    "managed_by_lc = ?",
-                    "region = ?",
-                    "metadata = ?",
-                    "version = version + 1",
-                ]
-                params = [
-                    device.ip_address,
-                    device.hostname,
-                    device.vendor,
-                    device.device_type,
-                    device.status.value,
-                    device.last_seen.isoformat() if device.last_seen else None,
-                    device.managed_by_lc,
-                    device.region,
-                    json.dumps(device.metadata),
-                ]
-
-                if "local_controller" in devices_cols:
-                    update_fields.append("local_controller = ?")
-                    params.append(local_controller)
-                if "discovery_method" in devices_cols:
-                    update_fields.append("discovery_method = ?")
-                    params.append(discovery_method)
-                if "firmware_version" in devices_cols:
-                    update_fields.append("firmware_version = ?")
-                    params.append(firmware_version)
-                if "last_updated" in devices_cols:
-                    update_fields.append("last_updated = ?")
-                    params.append(last_updated)
-
-                params.extend([device.mac_address, device.version])
-                cursor = conn.execute(
-                    f"UPDATE devices SET {', '.join(update_fields)} WHERE mac_address = ? AND version = ?",
-                    tuple(params)
->>>>>>> 924a240 (feat: add distributed simulation updates and protocol fixes)
                 )
                 if cursor.rowcount == 0:
                     return NIBResult(
@@ -437,7 +384,6 @@ class NIBStore:
                     """
                     INSERT INTO devices (
                         device_id, temp_scan_id, ip_address, mac_address, hostname,
-<<<<<<< HEAD
                         vendor, device_type, firmware_version, region, local_controller,
                         status, discovery_method, first_seen, last_seen,
                         last_updated, version, metadata
@@ -448,25 +394,9 @@ class NIBStore:
                         device.mac_address, device.hostname, device.vendor,
                         device.device_type, device.firmware_version,
                         device.region, device.local_controller,
-                        device.status.value, device.discovery_method,
+                        device.status.value, discovery_method,
                         device.first_seen.isoformat(), device.last_seen.isoformat(),
                         now, 0, json.dumps(device.metadata)
-=======
-                        vendor, device_type, status, first_seen, last_seen,
-                        managed_by_lc, region, version, metadata,
-                        firmware_version, local_controller, discovery_method, last_updated
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        device.device_id, device.temp_scan_id, device.ip_address,
-                        device.mac_address, device.hostname, device.vendor, device.device_type,
-                        device.status.value, device.first_seen.isoformat(), device.last_seen.isoformat(),
-                        device.managed_by_lc, device.region, 0, json.dumps(device.metadata),
-                        firmware_version if "firmware_version" in devices_cols else None,
-                        local_controller if "local_controller" in devices_cols else None,
-                        discovery_method if "discovery_method" in devices_cols else None,
-                        last_updated if "last_updated" in devices_cols else None,
->>>>>>> 924a240 (feat: add distributed simulation updates and protocol fixes)
                     )
                 )
                 return NIBResult(success=True, data=device.device_id)

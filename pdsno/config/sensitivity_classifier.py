@@ -22,7 +22,12 @@ import logging
 
 
 class SensitivityLevel(Enum):
-    """Configuration sensitivity levels"""
+    """
+    Configuration sensitivity levels
+        - HIGH: Changes that can cause outages, security risks, or major disruptions (e.g., routing changes, ACL modifications)
+        - MEDIUM: Changes that have moderate impact and may require careful review (e.g., VLAN changes, interface configurations)
+        - LOW: Changes that are low risk and often do not require approval (e.g., description changes, hostname updates)
+    """
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
