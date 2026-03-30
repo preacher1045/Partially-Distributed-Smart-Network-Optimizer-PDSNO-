@@ -45,7 +45,7 @@ Use this file as the source of truth for:
 
 1. `QUICK_START.md`
 2. `docs/deployment_guide.md`
-3. `docs/OPERATIONAL_RUNBOOK.md`
+3. `docs/not_for_github/OPERATIONAL_RUNBOOK.md`
 4. `deployment/helm/README.md`
 5. `examples/README.md`
 
@@ -60,7 +60,7 @@ Use this file as the source of truth for:
 | Communication contracts | `docs/communication_model.md`, `docs/api_reference.md` |
 | NIB model and consistency | `docs/nib_spec.md`, `docs/nib_consistency.md` |
 | Security model | `docs/security_model.md`, `docs/threat_model_and_mitigation.md` |
-| Deployment and operations | `docs/deployment_guide.md`, `docs/OPERATIONAL_RUNBOOK.md` |
+| Deployment and operations | `docs/deployment_guide.md`, `docs/not_for_github/OPERATIONAL_RUNBOOK.md` |
 | Use-case narratives | `docs/use_cases.md` |
 | Roadmap and priorities | `docs/ROADMAP_AND_TODO.md`, `docs/roadmap.md` |
 
@@ -79,18 +79,19 @@ Use this file as the source of truth for:
 The following locations are considered public-facing and should remain clean,
 accurate, and link-stable:
 
-- repository root: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `QUICK_START.md`
 - repository root: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `QUICK_START.md`
 - `.github/CODE_OF_CONDUCT.md` for community behavior standards
 - `docs/` (excluding `docs/not_for_github/`)
 
 ## Archived Internal Files
 
-Historical status notes, phase reports, temporary session outputs, and internal
-working notes are intentionally moved under:
+Internal operational and working documents are intentionally grouped under:
 
-- `docs/not_for_github/root_archive/`
-- `docs/not_for_github/docs_archive/`
+- `docs/not_for_github/OPERATIONAL_RUNBOOK.md`
+- `docs/not_for_github/Production_hardening.md`
+- `docs/not_for_github/Production_readiness_checklist.md`
+- `docs/not_for_github/pdsno_gap_analysis.md`
+- `docs/not_for_github/research_paper_analysis.md`
 
 These files are preserved for traceability but are not part of the official
 external documentation surface.

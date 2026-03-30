@@ -42,8 +42,10 @@ documentation site (MkDocs, Docusaurus, Sphinx, or custom static docs).
 
 - `QUICK_START.md`
 - `docs/deployment_guide.md`
-- `docs/OPERATIONAL_RUNBOOK.md`
 - `deployment/helm/README.md`
+
+Internal operational runbooks and analysis files in `docs/not_for_github/` are
+excluded from public documentation site navigation.
 
 ### 7. Governance And Community
 

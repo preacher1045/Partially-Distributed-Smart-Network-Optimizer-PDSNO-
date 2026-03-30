@@ -85,7 +85,7 @@ Use these docs as canonical anchors:
 - Communication contracts: `docs/api_reference.md`
 - Data model and NIB behavior: `docs/nib_spec.md`
 - Security model: `docs/security_model.md`
-- Operational behavior: `docs/OPERATIONAL_RUNBOOK.md`
+- Operational behavior: `docs/not_for_github/OPERATIONAL_RUNBOOK.md`
 
 ## Security Reporting
 

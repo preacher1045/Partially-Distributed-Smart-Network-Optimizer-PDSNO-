@@ -114,6 +114,7 @@ dist/
 *.egg-info/
 .eggs/
 
+
 # Secrets and Local Config (if not using separate config management)
 secrets.json
 config.local.yaml

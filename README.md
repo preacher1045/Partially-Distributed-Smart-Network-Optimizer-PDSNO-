@@ -213,7 +213,6 @@ If your contribution violates any of these, it will need to be rethought regardl
 | [docs/nib_spec.md](docs/nib_spec.md) | NIB schema, consistency model, write protocol |
 | [docs/communication_model.md](docs/communication_model.md) | REST/MQTT split, message envelope, auth |
 | [docs/algorithm_lifecycle.md](docs/algorithm_lifecycle.md) | The initialize/execute/finalize pattern |
-| [docs/pdsno_gap_analysis.md](docs/pdsno_gap_analysis.md) | Competitive analysis vs Cisco ACI, VMware NSX, Juniper Apstra |
 | [docs/threat_model_and_mitigation.md](docs/threat_model_and_mitigation.md) | Security threat scenarios and mitigations |
 | [docs/api_reference.md](docs/api_reference.md) | All inter-controller message types and payloads |
 | [docs/use_cases.md](docs/use_cases.md) | Seven end-to-end scenarios traced through the system |
