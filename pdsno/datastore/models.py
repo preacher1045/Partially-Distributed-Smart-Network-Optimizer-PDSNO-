@@ -8,7 +8,7 @@
 NIB Data Models
 
 Dataclasses representing entities stored in the Network Information Base.
-These models map exactly to the NIB schema defined in docs/nib_spec.md.
+These models map exactly to the NIB schema defined in docs/reference/02_nib_spec.md.
 
 Schema alignment history:
     2026-03-22 — Option B alignment: implementation brought in line with spec.
@@ -69,7 +69,7 @@ class Device:
     """
     Network device record.
 
-    Maps to the Device Table in docs/nib_spec.md.
+    Maps to the Device Table in docs/reference/02_nib_spec.md.
     MAC address is the canonical deduplication key across the system.
     """
     device_id: str                          # NIB-assigned: "nib-dev-<uuid8>"
@@ -104,7 +104,7 @@ class Config:
     """
     Configuration proposal and approval record.
 
-    Maps to the Config Table in docs/nib_spec.md.
+    Maps to the Config Table in docs/reference/02_nib_spec.md.
     A Config record exists for the full lifecycle of a change:
     proposal → approval → execution → result.
     """
@@ -142,7 +142,7 @@ class Policy:
     """
     Network policy record.
 
-    Maps to the Policy Table in docs/nib_spec.md.
+    Maps to the Policy Table in docs/reference/02_nib_spec.md.
     Policy is always written by GC and distributed downward.
     Regional controllers never write policy directly.
     """
@@ -170,7 +170,7 @@ class Event:
     """
     Immutable audit log entry.
 
-    Maps to the Event Log in docs/nib_spec.md.
+    Maps to the Event Log in docs/reference/02_nib_spec.md.
     Append-only — database triggers prevent UPDATE and DELETE.
     Every significant action in PDSNO produces at least one Event.
     """
@@ -196,7 +196,7 @@ class Lock:
     """
     Coordination lock for distributed operations.
 
-    Maps to the Controller Sync Table in docs/nib_spec.md.
+    Maps to the Controller Sync Table in docs/reference/02_nib_spec.md.
     Locks are always time-bounded — they expire automatically.
     """
     lock_id: str
@@ -224,7 +224,7 @@ class Controller:
     """
     Controller identity record.
 
-    Maps to the Controller Sync Table in docs/nib_spec.md.
+    Maps to the Controller Sync Table in docs/reference/02_nib_spec.md.
     Every validated controller has exactly one record here.
     """
     controller_id: str

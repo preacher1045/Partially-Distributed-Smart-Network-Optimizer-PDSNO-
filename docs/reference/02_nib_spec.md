@@ -5,6 +5,7 @@ author: Alexander Adjei
 last_updated: 2026-02-14
 component: Data Layer
 depends_on: PROJECT_OVERVIEW.md, docs/architecture/controller_hierarchy.md
+
 research_basis: >
   Koponen et al. (Onix, OSDI 2010) — foundational NIB design and distribution model.
   Alsheikh et al. (Distributed SDN Management, ARO 2024) — adaptive consistency model.

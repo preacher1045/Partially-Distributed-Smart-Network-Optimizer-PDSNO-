@@ -209,7 +209,7 @@ class GlobalController(BaseController):
     def handle_validation_request(self, envelope: MessageEnvelope) -> MessageEnvelope:
         """
         Main validation handler - implements the 6-step validation flow
-        from docs/architecture/verification/controller_validation_sequence.md
+        from docs/architecture/verification/02_controller_validation_sequence.md
         """
         payload = envelope.payload
         temp_id = payload.get("temp_id")

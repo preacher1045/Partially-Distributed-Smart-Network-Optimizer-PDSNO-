@@ -7,7 +7,7 @@
 """
 NIBStore — Network Information Base Storage Interface
 
-SQLite-backed implementation of the NIB as specified in docs/nib_spec.md.
+SQLite-backed implementation of the NIB as specified in docs/reference/02_nib_spec.md.
 Provides optimistic locking for conflict detection and thread-safe access.
 
 Schema alignment history:

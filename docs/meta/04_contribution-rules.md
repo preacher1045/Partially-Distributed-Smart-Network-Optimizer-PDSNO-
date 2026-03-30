@@ -26,7 +26,7 @@ To keep PDSNO consistent and scalable as contributors join, all new modules and 
 
 - All data interactions must be **logged** and **traceable**.
 - Dynamic updates should follow the **event-driven pattern** (publish/subscribe).
-- Avoid redundant update loops — refer to `docs/architecture.md` for flow examples.
+- Avoid redundant update loops — refer to `docs/foundations/01_architecture.md` for flow examples.
 
 ---
 
@@ -54,4 +54,4 @@ Every PR introducing new logic or module must:
 Each accepted contribution must include:
 - README or docstring explaining purpose
 - Example YAML configuration if applicable
-- Update to `docs/architecture.md` if it affects system flow
+- Update to `docs/foundations/01_architecture.md` if it affects system flow

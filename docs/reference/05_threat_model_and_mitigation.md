@@ -4,7 +4,7 @@ status: Reviewed
 author: Alexander Adjei
 last_updated: 2026-02-14
 component: Security
-depends_on: PROJECT_OVERVIEW.md, docs/security_model.md, docs/architecture/verification/controller_validation_sequence.md
+depends_on: PROJECT_OVERVIEW.md, docs/reference/04_security_model.md, docs/architecture/verification/02_controller_validation_sequence.md
 ---
 
 # PDSNO — Threat Model & Mitigations

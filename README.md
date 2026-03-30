@@ -160,7 +160,7 @@ PDSNO is actively looking for contributors across several domains. You don't nee
 
 **Security engineers**
 - Review the cryptographic implementation (HMAC, DH key exchange, token binding)
-- Threat model review — compare against `docs/threat_model_and_mitigation.md`
+- Threat model review — compare against `docs/reference/05_threat_model_and_mitigation.md`
 - TLS/mTLS implementation for Phase 8
 
 **DevOps / infrastructure engineers**
@@ -173,9 +173,9 @@ PDSNO is actively looking for contributors across several domains. You don't nee
 
 ```bash
 # Read these three documents first
-cat docs/PROJECT_OVERVIEW.md
-cat docs/architecture.md
-cat docs/INDEX.md
+cat docs/meta/02_PROJECT_OVERVIEW.md
+cat docs/foundations/01_architecture.md
+cat docs/meta/01_INDEX.md
 
 # Then set up your environment
 pip install -r requirements.txt
@@ -208,16 +208,16 @@ If your contribution violates any of these, it will need to be rethought regardl
 
 | Document | What It Covers |
 |----------|---------------|
-| [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) | Architecture foundations and design decisions |
-| [docs/architecture.md](docs/architecture.md) | System layers, controller matrix, key decisions |
-| [docs/nib_spec.md](docs/nib_spec.md) | NIB schema, consistency model, write protocol |
-| [docs/communication_model.md](docs/communication_model.md) | REST/MQTT split, message envelope, auth |
-| [docs/algorithm_lifecycle.md](docs/algorithm_lifecycle.md) | The initialize/execute/finalize pattern |
-| [docs/threat_model_and_mitigation.md](docs/threat_model_and_mitigation.md) | Security threat scenarios and mitigations |
-| [docs/api_reference.md](docs/api_reference.md) | All inter-controller message types and payloads |
-| [docs/use_cases.md](docs/use_cases.md) | Seven end-to-end scenarios traced through the system |
-| [docs/DOCS_PORTAL_MAP.md](docs/DOCS_PORTAL_MAP.md) | Deep documentation-site navigation blueprint |
-| [docs/INDEX.md](docs/INDEX.md) | Complete documentation map and reading order |
+| [docs/meta/02_PROJECT_OVERVIEW.md](docs/meta/02_PROJECT_OVERVIEW.md) | Architecture foundations and design decisions |
+| [docs/foundations/01_architecture.md](docs/foundations/01_architecture.md) | System layers, controller matrix, key decisions |
+| [docs/reference/02_nib_spec.md](docs/reference/02_nib_spec.md) | NIB schema, consistency model, write protocol |
+| [docs/foundations/03_communication_model.md](docs/foundations/03_communication_model.md) | REST/MQTT split, message envelope, auth |
+| [docs/foundations/02_algorithm_lifecycle.md](docs/foundations/02_algorithm_lifecycle.md) | The initialize/execute/finalize pattern |
+| [docs/reference/05_threat_model_and_mitigation.md](docs/reference/05_threat_model_and_mitigation.md) | Security threat scenarios and mitigations |
+| [docs/reference/01_api_reference.md](docs/reference/01_api_reference.md) | All inter-controller message types and payloads |
+| [docs/foundations/06_use_cases.md](docs/foundations/06_use_cases.md) | Seven end-to-end scenarios traced through the system |
+| [docs/meta/03_DOCS_PORTAL_MAP.md](docs/meta/03_DOCS_PORTAL_MAP.md) | Deep documentation-site navigation blueprint |
+| [docs/meta/01_INDEX.md](docs/meta/01_INDEX.md) | Complete documentation map and reading order |
 
 ---
 

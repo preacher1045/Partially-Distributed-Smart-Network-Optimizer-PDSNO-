@@ -41,7 +41,7 @@ body:
         Primary file: pdsno/datastore/sqlite_store.py → NIBStore.upsert_device()
         Migration:    pdsno/data/migrations/
         Tests:        tests/test_datastore.py → test_device_insert, test_device_optimistic_locking
-        Relevant doc: docs/nib_spec.md → Device Table schema
+        Relevant doc: docs/reference/02_nib_spec.md → Device Table schema
     validations:
       required: true
 
@@ -97,7 +97,7 @@ body:
         exactly where to start reading. This is the difference between an issue that
         gets picked up in a day and one that sits for three months.
       placeholder: |
-        Start by reading the Device Table section in docs/nib_spec.md to understand
+        Start by reading the Device Table section in docs/reference/02_nib_spec.md to understand
         why MAC is the canonical deduplication key. Then open pdsno/datastore/sqlite_store.py
         and find the _initialize_schema() method — that's where the table definition lives.
         The fix is small (one line in the CREATE TABLE statement and one line adding the index)

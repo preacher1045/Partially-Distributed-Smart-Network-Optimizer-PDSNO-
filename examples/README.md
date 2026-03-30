@@ -43,21 +43,21 @@ pip install -r requirements.txt
 
 ## Understanding the Examples
 
-These examples correspond to Phase 1-3 of the internal development tracker in `docs/not_for_github/ROADMAP_AND_TODO.md`:
+These examples correspond to Phase 1-3 of the internal development tracker in `docs/not_for_github/05_ROADMAP_AND_TODO.md`:
 
 - **Phase 1**: Project foundation, logging, folder structure
 - **Phase 2**: Base classes (AlgorithmBase, BaseController, ContextManager)
 - **Phase 3**: NIB implementation with SQLite
 
 The examples are designed to be educational and demonstrate the architectural patterns documented in:
-- `docs/algorithm_lifecycle.md` - Algorithm pattern
-- `docs/nib_spec.md` - NIB specification
-- `docs/PROJECT_OVERVIEW.md` - Overall architecture
+- `docs/foundations/02_algorithm_lifecycle.md` - Algorithm pattern
+- `docs/reference/02_nib_spec.md` - NIB specification
+- `docs/meta/02_PROJECT_OVERVIEW.md` - Overall architecture
 
 ## Next Steps
 
 After exploring these examples, you can:
 
 1. **Run the tests**: `python -m pytest`
-2. **Review the documentation**: Start with `docs/INDEX.md`
-3. **Continue development**: See `docs/not_for_github/ROADMAP_AND_TODO.md` for internal Phase 4+ planning
+2. **Review the documentation**: Start with `docs/meta/01_INDEX.md`
+3. **Continue development**: See `docs/not_for_github/05_ROADMAP_AND_TODO.md` for internal Phase 4+ planning

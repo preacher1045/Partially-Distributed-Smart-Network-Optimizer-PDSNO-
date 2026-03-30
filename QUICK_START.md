@@ -243,7 +243,7 @@ All logs are JSON-formatted for machine parsing:
 
 1. Add enum value to `MessageType` in `message_format.py`
 2. Create message dataclass with `to_dict()` method
-3. Update `docs/api_reference.md` with specification
+3. Update `docs/reference/01_api_reference.md` with specification
 4. Write tests in `tests/test_communication.py`
 
 ---
@@ -253,17 +253,17 @@ All logs are JSON-formatted for machine parsing:
 ### Essential Reading
 
 1. **[UPDATE_SUMMARY.md](UPDATE_SUMMARY.md)** - What changed in this update
-2. **[docs/INDEX.md](docs/INDEX.md)** - Documentation navigation
-3. **Internal roadmap tracker** - `docs/not_for_github/ROADMAP_AND_TODO.md` (local maintainer planning)
-4. **[docs/algorithm_lifecycle.md](docs/algorithm_lifecycle.md)** - Algorithm pattern
-5. **[docs/nib_spec.md](docs/nib_spec.md)** - NIB specification
+2. **[docs/meta/01_INDEX.md](docs/meta/01_INDEX.md)** - Documentation navigation
+3. **Internal roadmap tracker** - `docs/not_for_github/05_ROADMAP_AND_TODO.md` (local maintainer planning)
+4. **[docs/foundations/02_algorithm_lifecycle.md](docs/foundations/02_algorithm_lifecycle.md)** - Algorithm pattern
+5. **[docs/reference/02_nib_spec.md](docs/reference/02_nib_spec.md)** - NIB specification
 
 ### For Learning
 
 - Start with `examples/` - working code you can run and modify
-- Read `docs/PROJECT_OVERVIEW.md` - architectural foundations
-- Review `docs/architecture.md` - system design
-- Check `docs/not_for_github/ROADMAP_AND_TODO.md` - internal maintainer next-phase tracker
+- Read `docs/meta/02_PROJECT_OVERVIEW.md` - architectural foundations
+- Review `docs/foundations/01_architecture.md` - system design
+- Check `docs/not_for_github/05_ROADMAP_AND_TODO.md` - internal maintainer next-phase tracker
 
 ---
 
@@ -313,7 +313,7 @@ python examples/nib_store_usage.py
 ## Getting Help
 
 - Check [UPDATE_SUMMARY.md](UPDATE_SUMMARY.md) for recent changes
-- Review `docs/not_for_github/ROADMAP_AND_TODO.md` for internal maintainer context
+- Review `docs/not_for_github/05_ROADMAP_AND_TODO.md` for internal maintainer context
 - See [examples/](examples/) for working code patterns
 - Check test files for usage examples
 

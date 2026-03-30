@@ -26,7 +26,7 @@ Follow the process documented in SECURITY.md.
 
 ## Before Opening An Issue
 
-1. Read README.md and docs/INDEX.md.
+1. Read README.md and docs/meta/01_INDEX.md.
 2. Check existing open and closed issues.
 3. Prepare a minimal reproducible example.
 
@@ -34,4 +34,4 @@ Follow the process documented in SECURITY.md.
 
 Support model and response expectations are described in:
 
-- [docs/community_checklist/support_policy.md](docs/community_checklist/support_policy.md)
+- [docs/community_checklist/01_support_policy.md](docs/community_checklist/01_support_policy.md)

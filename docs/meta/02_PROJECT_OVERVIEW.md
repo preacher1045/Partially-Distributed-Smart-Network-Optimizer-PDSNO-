@@ -122,7 +122,7 @@ Before any controller joins the network it must pass a multi-step cryptographic 
 | **5. Policy Check** | Metadata is cross-validated against policy (correct region, correct type, permitted zone) |
 | **6. Identity Assignment** | A unique ID, certificate, and role are assigned and written atomically to the NIB and context store |
 
-Full details are in [`docs/architecture/verification/controller_validation_sequence.md`](architecture/verification/controller_validation_sequence.md).
+Full details are in [`docs/architecture/verification/02_controller_validation_sequence.md`](architecture/verification/controller_validation_sequence.md).
 
 ---
 
@@ -147,7 +147,7 @@ class AlgorithmBase:
 
 Controllers load, run, and monitor algorithms through a standard interface, which allows algorithms to be scheduled, audited, and rolled back independently.
 
-Full details are in [`docs/algorithm_lifecycle.md`](algorithm_lifecycle.md).
+Full details are in [`docs/foundations/02_algorithm_lifecycle.md`](algorithm_lifecycle.md).
 
 ---
 
@@ -194,7 +194,7 @@ The NIB stores:
 - Audit and event logs
 - Controller synchronization state
 
-The NIB consistency model and schema are defined in [`docs/nib_spec.md`](nib_spec.md).
+The NIB consistency model and schema are defined in [`docs/reference/02_nib_spec.md`](nib_spec.md).
 
 ---
 
@@ -228,7 +228,7 @@ Each method is implemented as an `AlgorithmBase` subclass and can run in paralle
 | ⚪ Not Started | Discovery module implementation |
 | ⚪ Not Started | Real communication layer (REST/MQTT) |
 
-Detailed phase tracking is maintained in `docs/not_for_github/ROADMAP_AND_TODO.md` for internal planning.
+Detailed phase tracking is maintained in `docs/not_for_github/05_ROADMAP_AND_TODO.md` for internal planning.
 
 ---
 

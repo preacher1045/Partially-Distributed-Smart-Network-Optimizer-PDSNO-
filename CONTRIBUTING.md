@@ -10,10 +10,10 @@ reports. Please read this guide before opening a pull request.
 Read these documents first:
 
 1. `README.md`
-2. `docs/INDEX.md`
-3. `docs/PROJECT_OVERVIEW.md`
-4. `docs/architecture.md`
-5. `docs/contribution-rules.md`
+2. `docs/meta/01_INDEX.md`
+3. `docs/meta/02_PROJECT_OVERVIEW.md`
+4. `docs/foundations/01_architecture.md`
+5. `docs/meta/04_contribution-rules.md`
 
 If architecture intent is unclear, open an issue before implementing a large
 change.
@@ -81,11 +81,11 @@ If code behavior changes, documentation must change in the same PR.
 
 Use these docs as canonical anchors:
 
-- Architecture and design: `docs/architecture.md`
-- Communication contracts: `docs/api_reference.md`
-- Data model and NIB behavior: `docs/nib_spec.md`
-- Security model: `docs/security_model.md`
-- Operational behavior: `docs/not_for_github/OPERATIONAL_RUNBOOK.md`
+- Architecture and design: `docs/foundations/01_architecture.md`
+- Communication contracts: `docs/reference/01_api_reference.md`
+- Data model and NIB behavior: `docs/reference/02_nib_spec.md`
+- Security model: `docs/reference/04_security_model.md`
+- Operational behavior: `docs/not_for_github/02_OPERATIONAL_RUNBOOK.md`
 
 ## Security Reporting
 

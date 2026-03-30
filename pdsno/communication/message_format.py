@@ -8,7 +8,7 @@
 PDSNO Message Format
 
 Defines the standard message envelope for all inter-controller communication.
-Based on docs/communication_model.md and docs/api_reference.md
+Based on docs/foundations/03_communication_model.md and docs/reference/01_api_reference.md
 """
 
 from dataclasses import dataclass, field
