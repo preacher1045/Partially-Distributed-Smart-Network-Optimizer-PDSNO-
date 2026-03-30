@@ -76,12 +76,7 @@ Use this file as the source of truth for:
 
 ## Public Documentation Scope
 
-The following locations are considered public-facing and should remain clean,
-accurate, and link-stable:
-
-- repository root: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md`, `QUICK_START.md`
-- `.github/CODE_OF_CONDUCT.md` for community behavior standards
-- `docs/` (excluding `docs/not_for_github/`)
+The public-facing documentation surface encompasses all files in the repository root and the docs/ directory, excluding those explicitly listed in the **Archived Internal Files** section below. These locations should remain clean, accurate, and link-stable.
 
 ## Archived Internal Files
 
