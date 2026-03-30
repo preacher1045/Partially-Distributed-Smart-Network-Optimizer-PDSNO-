@@ -54,7 +54,7 @@ def main():
     print("  ✓ Data models and optimistic locking")
     print("\nNext Steps:")
     print("  - Run tests: python -m pytest")
-    print("  - Review docs/ROADMAP_AND_TODO.md for next phase")
+    print("  - Review docs/not_for_github/ROADMAP_AND_TODO.md for internal next-phase planning")
     print("  - See examples/ directory for usage patterns")
     print("="*60 + "\n")
 

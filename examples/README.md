@@ -43,7 +43,7 @@ pip install -r requirements.txt
 
 ## Understanding the Examples
 
-These examples correspond to Phase 1-3 of the development roadmap in `docs/ROADMAP_AND_TODO.md`:
+These examples correspond to Phase 1-3 of the internal development tracker in `docs/not_for_github/ROADMAP_AND_TODO.md`:
 
 - **Phase 1**: Project foundation, logging, folder structure
 - **Phase 2**: Base classes (AlgorithmBase, BaseController, ContextManager)
@@ -60,4 +60,4 @@ After exploring these examples, you can:
 
 1. **Run the tests**: `python -m pytest`
 2. **Review the documentation**: Start with `docs/INDEX.md`
-3. **Continue development**: See `docs/ROADMAP_AND_TODO.md` for Phase 4+
+3. **Continue development**: See `docs/not_for_github/ROADMAP_AND_TODO.md` for internal Phase 4+ planning

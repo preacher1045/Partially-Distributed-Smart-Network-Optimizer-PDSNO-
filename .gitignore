@@ -147,3 +147,5 @@ containerlab/topologies/clab-*/
 *.pkl
 *.pickle
 docs/not_for_github/
+
+issues.md

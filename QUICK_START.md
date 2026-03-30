@@ -171,7 +171,7 @@ examples/                 # Working examples
 
 docs/                     # Comprehensive documentation
 ├── INDEX.md             # Start here
-├── ROADMAP_AND_TODO.md  # Development plan
+├── not_for_github/ROADMAP_AND_TODO.md  # Internal development tracker
 ├── algorithm_lifecycle.md
 ├── nib_spec.md
 └── ... (many more)
@@ -254,7 +254,7 @@ All logs are JSON-formatted for machine parsing:
 
 1. **[UPDATE_SUMMARY.md](UPDATE_SUMMARY.md)** - What changed in this update
 2. **[docs/INDEX.md](docs/INDEX.md)** - Documentation navigation
-3. **[docs/ROADMAP_AND_TODO.md](docs/ROADMAP_AND_TODO.md)** - Development plan
+3. **Internal roadmap tracker** - `docs/not_for_github/ROADMAP_AND_TODO.md` (local maintainer planning)
 4. **[docs/algorithm_lifecycle.md](docs/algorithm_lifecycle.md)** - Algorithm pattern
 5. **[docs/nib_spec.md](docs/nib_spec.md)** - NIB specification
 
@@ -263,7 +263,7 @@ All logs are JSON-formatted for machine parsing:
 - Start with `examples/` - working code you can run and modify
 - Read `docs/PROJECT_OVERVIEW.md` - architectural foundations
 - Review `docs/architecture.md` - system design
-- Check `docs/ROADMAP_AND_TODO.md` - what's next
+- Check `docs/not_for_github/ROADMAP_AND_TODO.md` - internal maintainer next-phase tracker
 
 ---
 
@@ -305,7 +305,7 @@ python examples/nib_store_usage.py
 1. ✅ **Run examples** to see the system in action
 2. ✅ **Run tests** to validate your environment
 3. ✅ **Read documentation** starting with INDEX.md
-4. ✅ **Review ROADMAP** to understand development phases
+4. ✅ **Review internal roadmap tracker** for maintainer development phases
 5. 🔲 **Implement Phase 4** (Controller validation) - See ROADMAP
 
 ---
@@ -313,7 +313,7 @@ python examples/nib_store_usage.py
 ## Getting Help
 
 - Check [UPDATE_SUMMARY.md](UPDATE_SUMMARY.md) for recent changes
-- Review [docs/ROADMAP_AND_TODO.md](docs/ROADMAP_AND_TODO.md) for context
+- Review `docs/not_for_github/ROADMAP_AND_TODO.md` for internal maintainer context
 - See [examples/](examples/) for working code patterns
 - Check test files for usage examples
 

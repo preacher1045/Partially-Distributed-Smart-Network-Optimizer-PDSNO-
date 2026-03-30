@@ -216,7 +216,6 @@ If your contribution violates any of these, it will need to be rethought regardl
 | [docs/threat_model_and_mitigation.md](docs/threat_model_and_mitigation.md) | Security threat scenarios and mitigations |
 | [docs/api_reference.md](docs/api_reference.md) | All inter-controller message types and payloads |
 | [docs/use_cases.md](docs/use_cases.md) | Seven end-to-end scenarios traced through the system |
-| [docs/ROADMAP_AND_TODO.md](docs/ROADMAP_AND_TODO.md) | Full phased development plan with open questions |
 | [docs/DOCS_PORTAL_MAP.md](docs/DOCS_PORTAL_MAP.md) | Deep documentation-site navigation blueprint |
 | [docs/INDEX.md](docs/INDEX.md) | Complete documentation map and reading order |
 

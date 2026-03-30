@@ -228,7 +228,7 @@ Each method is implemented as an `AlgorithmBase` subclass and can run in paralle
 | ⚪ Not Started | Discovery module implementation |
 | ⚪ Not Started | Real communication layer (REST/MQTT) |
 
-See [`ROADMAP_AND_TODO.md`](../ROADMAP_AND_TODO.md) for the full phased development plan.
+Detailed phase tracking is maintained in `docs/not_for_github/ROADMAP_AND_TODO.md` for internal planning.
 
 ---
 

@@ -17,7 +17,7 @@ Use this file as the source of truth for:
 3. `docs/PROJECT_OVERVIEW.md`
 4. `docs/architecture.md`
 5. `docs/contribution-rules.md`
-6. `docs/ROADMAP_AND_TODO.md`
+6. `docs/use_cases.md`
 
 ### Path B: Architecture Deep Dive
 
@@ -62,7 +62,7 @@ Use this file as the source of truth for:
 | Security model | `docs/security_model.md`, `docs/threat_model_and_mitigation.md` |
 | Deployment and operations | `docs/deployment_guide.md`, `docs/not_for_github/OPERATIONAL_RUNBOOK.md` |
 | Use-case narratives | `docs/use_cases.md` |
-| Roadmap and priorities | `docs/ROADMAP_AND_TODO.md`, `docs/roadmap.md` |
+| Roadmap and priorities (internal) | `docs/not_for_github/ROADMAP_AND_TODO.md`, `docs/not_for_github/roadmap.md` |
 
 ## Architecture Submodule Documents
 
@@ -90,6 +90,8 @@ Internal operational and working documents are intentionally grouped under:
 - `docs/not_for_github/OPERATIONAL_RUNBOOK.md`
 - `docs/not_for_github/Production_hardening.md`
 - `docs/not_for_github/Production_readiness_checklist.md`
+- `docs/not_for_github/ROADMAP_AND_TODO.md`
+- `docs/not_for_github/roadmap.md`
 - `docs/not_for_github/pdsno_gap_analysis.md`
 - `docs/not_for_github/research_paper_analysis.md`
 

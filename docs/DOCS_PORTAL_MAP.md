@@ -57,10 +57,12 @@ excluded from public documentation site navigation.
 - `docs/community_checklist/governance_model.md`
 - `docs/community_checklist/community_support_scope.md`
 
-### 8. Roadmap
+### 8. Internal Planning (Excluded)
 
-- `docs/ROADMAP_AND_TODO.md`
-- `docs/roadmap.md`
+- `docs/not_for_github/ROADMAP_AND_TODO.md`
+- `docs/not_for_github/roadmap.md`
+
+These files are maintainer planning artifacts and should not be published in the public docs portal.
 
 ## Suggested Metadata For Docs Pages
 

@@ -82,7 +82,7 @@ configured explicitly:
 - RCs and LCs continue operating for LOW/MEDIUM changes — RC has approval authority
 - HIGH changes are blocked — GC is the only HIGH approval authority
 - `global_cntl_2` standby is warm but failover is manual in the PoC
-- GC failover design is an open question (Q4 in `ROADMAP_AND_TODO.md`) — must be
+- GC failover design is an open question (tracked in `docs/not_for_github/ROADMAP_AND_TODO.md`) — must be
   resolved before Phase 6
 
 ---
