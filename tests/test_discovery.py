@@ -143,10 +143,7 @@ class TestICMPScanner:
     def test_finalize(self):
         """Test finalize returns proper result"""
         scanner = ICMPScanner()
-        # scanner.initialize({'ip_list': ['127.0.0.1']})
-        scanner.initialize({'subnet': '192.168.1.0/28'})
-        scanner.execute()
-        scanner.initialize({'subnet': '192.168.1.0/28', 'simulate': True})
+        scanner.initialize({'ip_list': ['127.0.0.1'], 'simulate': True})
         scanner.execute()
         
         result = scanner.finalize()
