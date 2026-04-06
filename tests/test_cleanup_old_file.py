@@ -6,6 +6,16 @@
 # This file is part of PDSNO.
 # See the LICENSE file in the project root for license information.
 
+"""
+tests/test_cleanup_old_data.py
+ 
+Unit and integration tests for scripts/cleanup_old_data.py.
+ 
+The tests set up a minimal subset of the PDSNO NIB schema (matching
+pdsno/datastore/nib.py and scripts/init_db.py) so cleanup logic can be
+verified without importing the full pdsno package.
+"""
+
 from __future__ import annotations
  
 import sqlite3
