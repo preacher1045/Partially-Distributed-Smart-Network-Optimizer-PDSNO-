@@ -26,7 +26,45 @@ def _parse_iso8601(value: str) -> datetime:
 
 
 class MessageType(Enum):
-    """Standard PDSNO message types"""
+    """
+    Standard PDSNO message types
+    Categorized by communication phase and purpose.
+    
+    Each message type corresponds to a specific interaction pattern
+    between controllers, such as validation, discovery, configuration,
+    policy distribution, synchronization, and key management.
+    
+    This enum serves as a central reference for all message types used in
+    the PDSNO communication protocol, ensuring consistency and clarity
+    across the codebase and documentation.
+        
+        message_type values are used in the MessageEnvelope to indicate the purpose
+        of the message and to route it to the appropriate handler.
+        
+        VALIDATION_REQUEST: Sent by a controller seeking validation to the validating authority.
+        CHALLENGE: Sent by the validating authority to the controller as part of the validation process.
+        CHALLENGE_RESPONSE: Sent by the controller in response to a challenge during validation.
+        VALIDATION_RESULT: Sent by the validating authority to indicate the result of the validation process.
+        DISCOVERY_REQUEST: Sent by a controller to discover other controllers in the network.
+        DISCOVERY_REPORT: Sent by a controller in response to a discovery request, containing its details.
+        DISCOVERY_REPORT_ACK: Sent by the requester to acknowledge receipt of a discovery report.
+        DISCOVERY_SUMMARY: Sent by a controller to summarize the current state of discovered controllers.
+        CONFIG_PROPOSAL: Sent by a controller proposing a configuration change to the validating authority.
+        CONFIG_APPROVAL: Sent by the validating authority to approve a proposed configuration change.
+        CONFIG_REJECTION: Sent by the validating authority to reject a proposed configuration change.
+        EXECUTION_INSTRUCTION: Sent by the validating authority to instruct a controller to execute a configuration change.
+        EXECUTION_RESULT: Sent by a controller to report the result of executing a configuration change.
+        POLICY_UPDATE: Sent by the validating authority to distribute a new or updated policy to controllers.
+        POLICY_ACK: Sent by a controller to acknowledge receipt of a policy update.
+        HEARTBEAT: Sent periodically by controllers to indicate they are alive and functioning.
+        SYNC_REQUEST: Sent by a controller to request synchronization of state or configuration.
+        SYNC_RESPONSE: Sent by a controller in response to a sync request, containing the requested information.
+        KEY_EXCHANGE_INIT: Sent by a controller to initiate a key exchange process with another controller.
+        KEY_EXCHANGE_RESPONSE: Sent by a controller in response to a key exchange initiation, containing its public key and other necessary information.
+        KEY_ROTATION_REQUEST: Sent by a controller to request a key rotation from the validating authority.
+        KEY_ROTATION_ACK: Sent by the validating authority to acknowledge a key rotation request and provide necessary information for the rotation process. 
+        
+    """
     # Controller Validation
     VALIDATION_REQUEST = "VALIDATION_REQUEST"
     CHALLENGE = "CHALLENGE"
