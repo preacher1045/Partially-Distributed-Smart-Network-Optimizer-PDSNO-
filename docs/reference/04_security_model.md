@@ -68,8 +68,7 @@ Network device          ──[SBI credentials]───►  Managed device
 | Discovery scan injection | RC validates report source; anomaly threshold flags spikes | `device_discovery_sequence.md` |
 | MAC spoofing across regions | GC MAC collision detection flags cross-region duplicates | `device_discovery_sequence.md` |
 | Replay attack on validation request | Timestamp freshness window + message_id deduplication | `communication_model.md` |
-
-Full threat scenarios and mitigations: `docs/architecture/policy_propagation/02_threat_model_and_mitigation.md`
+Full threat model scenarios and mitigations: docs/threat_model_and_mitigation.md
 
 ---
 
