@@ -15,6 +15,23 @@ from pdsno.controllers.local_controller import LocalController
 from pdsno.controllers.regional_controller import RegionalController
 from pdsno.datastore import ConfigStatus, LockType, NIBStore
 
+def _seed_device(nib: NIBStore, device_id: str, ip: str = "172.20.20.11"):
+    """Insert a minimal device record so LC can look it up during execution."""
+    from pdsno.datastore.models import Device, DeviceStatus
+    from datetime import datetime, timezone
+    device = Device(
+        device_id=device_id,
+        ip_address=ip,
+        mac_address=f"aa:bb:cc:dd:ee:{device_id[-2:]}",
+        vendor="frr",
+        status=DeviceStatus.ACTIVE,
+        first_seen=datetime.now(timezone.utc),
+        last_seen=datetime.now(timezone.utc),
+        local_controller="local_cntl_zone-A_1",
+        region="zone-A",
+    )
+    nib.upsert_device(device)
+
 
 def _build_controllers(tmp_path: Path, register_execution_handler: bool = True):
     nib = NIBStore(str(tmp_path / "pdsno_test.db"))
@@ -59,6 +76,8 @@ def _build_controllers(tmp_path: Path, register_execution_handler: bool = True):
 
 def test_medium_proposal_executes_end_to_end(tmp_path):
     lc, rc, nib = _build_controllers(tmp_path)
+    device_id = "nib-dev-001"
+    _seed_device(nib, device_id)
 
     result = lc.submit_config_proposal(
         rc_id=rc.controller_id,
@@ -83,6 +102,8 @@ def test_medium_proposal_executes_end_to_end(tmp_path):
 
 def test_high_proposal_escalates(tmp_path):
     lc, rc, nib = _build_controllers(tmp_path)
+    device_id = "nib-dev-001"
+    _seed_device(nib, device_id)
 
     result = lc.submit_config_proposal(
         rc_id=rc.controller_id,
@@ -107,6 +128,8 @@ def test_high_proposal_escalates(tmp_path):
 
 def test_dispatch_failure_releases_lock_and_marks_failed(tmp_path):
     lc, rc, nib = _build_controllers(tmp_path, register_execution_handler=False)
+    device_id = "nib-dev-001"
+    _seed_device(nib, device_id)
 
     result = lc.submit_config_proposal(
         rc_id=rc.controller_id,
@@ -133,6 +156,8 @@ def test_dispatch_failure_releases_lock_and_marks_failed(tmp_path):
 
 def test_proposal_denied_when_device_lock_held(tmp_path):
     lc, rc, nib = _build_controllers(tmp_path)
+    device_id = "nib-dev-001"
+    _seed_device(nib, device_id)
 
     lock_result = nib.acquire_lock(
         subject_id="nib-dev-009",

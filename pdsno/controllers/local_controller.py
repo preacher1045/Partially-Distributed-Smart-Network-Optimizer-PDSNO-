@@ -25,6 +25,7 @@ from pdsno.datastore.models import ConfigCategory
 from pdsno.controllers.context_manager import ContextManager
 from pdsno.communication.message_format import MessageEnvelope, MessageType
 from pdsno.communication.mqtt_client import ControllerMQTTClient
+from pdsno.adapters.factory import VendorAdapterFactory
 from pdsno.config import (
     ApprovalWorkflowEngine,
     ConfigSensitivityClassifier,
@@ -479,6 +480,8 @@ class LocalController(BaseController):
             rollback_payload=str(rollback_payload) if rollback_payload else None,
             config_data=json.dumps(request.to_dict()),
         )
+        # If the proposal already exists, it means this is a retry after approval,
+        # so we can ignore the duplicate error and proceed to execution.
         create_result = self.nib_store.create_config_proposal(config_record)
         if not create_result.success and "already exists" not in (create_result.error or "").lower():
             return {
@@ -651,9 +654,70 @@ class LocalController(BaseController):
             status=mapped_status,
             version=config.version,
         )
+        
+    def _execute_config_change(
+        self,
+        device_id: str,
+        config_lines: List[str],
+        device_info: Optional[Dict] = None,
+    ) -> Dict:
+        """
+        Execute config change via vendor adapter.
 
-    def _execute_config_change(self, device_id: str, config_lines: List[str]) -> Dict:
-        # Actual device execution is integrated in later phases; this preserves end-to-end flow.
+        Looks up the device in NIB to get vendor/IP, creates the appropriate
+        adapter, connects, applies config, and disconnects.
+
+        Phase C: real execution via FRRAdapter docker exec.
+        Phase D: add rollback on partial failure.
+        """
         if not device_id or not config_lines:
             return {"success": False, "reason": "MISSING_EXECUTION_INPUT"}
-        return {"success": True, "applied_lines": len(config_lines)}
+
+        # Look up device from NIB to resolve vendor and IP
+        device = self.nib_store.get_device(device_id)
+        if not device:
+            return {"success": False, "reason": f"DEVICE_NOT_IN_NIB: {device_id}"}
+
+        info = device_info or {
+            "vendor": device.vendor or "frr",
+            "platform": "linux",
+            "ip_address": device.ip_address,
+            "hostname": device.hostname or "",
+            "username": "admin",     # Phase D: load from SecretManager
+            "password": "admin",     # Phase D: load from SecretManager
+        }
+
+        try:
+            from pdsno.adapters import VendorAdapterFactory
+            adapter = VendorAdapterFactory.create_adapter(info)
+
+            connected = adapter.connect(info)
+            if not connected:
+                return {
+                    "success": False,
+                    "reason": f"ADAPTER_CONNECT_FAILED: {device.ip_address}",
+                }
+
+            result = adapter.apply_config(config_lines)
+            adapter.disconnect()
+
+            if not result.get("success"):
+                return {
+                    "success": False,
+                    "reason": result.get("error", "ADAPTER_APPLY_FAILED"),
+                    "applied_lines": 0,
+                }
+
+            return {
+                "success": True,
+                "applied_lines": len(config_lines),
+                "outputs": result.get("outputs", []),
+            }
+
+        except Exception as exc:
+            self.logger.error(
+                f"_execute_config_change failed for {device_id}: {exc}",
+                exc_info=True,
+            )
+            return {"success": False, "reason": str(exc)}
+        

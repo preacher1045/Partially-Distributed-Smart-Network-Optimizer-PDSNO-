@@ -34,6 +34,7 @@ from .cisco_ios_adapter import CiscoIOSAdapter
 from .juniper_adapter import JuniperAdapter
 from .arista_adapter import AristaAdapter
 from .netconf_adapter import NETCONFAdapter
+from .frr_adapter import FRRAdapter
 
 __all__ = [
     'VendorAdapter',
@@ -43,5 +44,6 @@ __all__ = [
     'CiscoIOSAdapter',
     'JuniperAdapter',
     'AristaAdapter',
-    'NETCONFAdapter'
+    'NETCONFAdapter',
+    'FRRAdapter'
 ]

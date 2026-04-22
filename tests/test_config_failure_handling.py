@@ -36,6 +36,25 @@ from pdsno.controllers.regional_controller import RegionalController
 from pdsno.datastore import ConfigStatus, LockType, NIBStore
 
 
+
+def _seed_device(nib: NIBStore, device_id: str, ip: str = "172.20.20.11"):
+    """Insert a minimal device record so LC can look it up during execution."""
+    from pdsno.datastore.models import Device, DeviceStatus
+    from datetime import datetime, timezone
+    device = Device(
+        device_id=device_id,
+        ip_address=ip,
+        mac_address=f"aa:bb:cc:dd:ee:{device_id[-2:]}",
+        vendor="frr",
+        status=DeviceStatus.ACTIVE,
+        first_seen=datetime.now(timezone.utc),
+        last_seen=datetime.now(timezone.utc),
+        local_controller="local_cntl_zone-A_1",
+        region="zone-A",
+    )
+    nib.upsert_device(device)
+
+
 # ── Shared factory ────────────────────────────────────────────────────────────
 
 def _build_controllers(tmp_path: Path, register_execution_handler: bool = True):
@@ -98,7 +117,8 @@ def test_execution_failure_marks_config_failed(tmp_path) -> None:
     proposal for the same device and corrupts the audit trail.
     """
     lc, rc, nib = _build_controllers(tmp_path)
-
+    device_id = "nib-dev-001"
+    _seed_device(nib, device_id)
     with patch.object(
         lc,
         "_execute_config_change",
@@ -132,6 +152,8 @@ def test_execution_failure_releases_device_lock(tmp_path):
     for a deterministic failure.
     """
     lc, rc, nib = _build_controllers(tmp_path)
+    device_id = "nib-dev-001"
+    _seed_device(nib, device_id)
 
     with patch.object(
         lc,
@@ -166,7 +188,8 @@ def test_failed_device_accepts_subsequent_proposal(tmp_path):
     be caught by this test.
     """
     lc, rc, nib = _build_controllers(tmp_path)
-    device_id = "nib-dev-retry-001"
+    device_id = "nib-dev-001"
+    _seed_device(nib, device_id)
 
     # First proposal — force failure
     with patch.object(
@@ -213,6 +236,7 @@ def test_execution_failure_writes_audit_event(tmp_path):
     """
     lc, rc, nib = _build_controllers(tmp_path)
     device_id = "nib-dev-audit-001"
+    _seed_device(nib, device_id)
 
     with patch.object(
         lc,
@@ -264,6 +288,8 @@ def test_missing_execution_handler_denies_and_releases_lock(tmp_path):
     """
     # Build without registering execution handler on LC
     lc, rc, nib = _build_controllers(tmp_path, register_execution_handler=False)
+    device_id = "nib-dev-001"
+    _seed_device(nib, device_id)
 
     result = lc.submit_config_proposal(
         rc_id=rc.controller_id,

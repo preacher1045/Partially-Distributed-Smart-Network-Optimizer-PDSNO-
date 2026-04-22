@@ -1,0 +1,257 @@
+
+# Copyright (C) 2025 TENKEI
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# This file is part of PDSNO.
+# See the LICENSE file in the project root for license information.
+
+"""
+FRR Adapter
+
+Executes configuration changes on FRRouting (FRR) containers.
+Uses docker exec to invoke vtysh — appropriate for containerlab environments
+where the LC and FRR nodes share the same Docker host.
+
+Phase C implementation: real execution via subprocess docker exec.
+Phase D (future): replace with Netmiko SSH when FRR containers have
+SSH servers configured, or with NETCONF when FRR NETCONF support matures.
+"""
+
+import subprocess
+import logging
+from typing import Dict, List, Optional
+
+from pdsno.adapters.base_adapter import VendorAdapter
+from pdsno.adapters import ConfigIntent, IntentType
+
+
+class FRRAdapter(VendorAdapter):
+    """
+    Adapter for FRRouting devices in containerlab environments.
+
+    Execution model: docker exec → vtysh -c <command>
+    This requires the Python process running the LC to have access
+    to the Docker socket (/var/run/docker.sock), which is true when
+    running on the containerlab host.
+
+    Container name convention: clab-<topology>-<node-name>
+    Default topology: pdsno-distributed-lab
+    """
+
+    VENDOR = "frr"
+    PLATFORM = "linux"
+
+    # Default topology name — matches containerlab topology file name
+    TOPOLOGY_NAME = "pdsno-distributed-lab"
+
+    def __init__(self, device_info: Optional[Dict] = None):
+        self._device_info = device_info or {}
+        self.logger = logging.getLogger(__name__)
+        self._container_name: Optional[str] = None
+
+    def _resolve_container_name(self) -> str:
+        """
+        Resolve the Docker container name for this device.
+
+        Uses device_info['container_name'] if provided directly.
+        Otherwise derives from hostname: clab-<topology>-<hostname>
+        Falls back to ip-based lookup via docker inspect.
+        """
+        if self._device_info.get("container_name"):
+            return self._device_info["container_name"]
+
+        hostname = self._device_info.get("hostname", "")
+        if hostname:
+            return f"clab-{self.TOPOLOGY_NAME}-{hostname}"
+
+        # Fall back to IP-based lookup
+        ip = self._device_info.get("ip_address") or self._device_info.get("ip", "")
+        if ip:
+            return self._resolve_container_by_ip(ip)
+
+        raise ValueError(
+            "Cannot resolve container name: device_info must contain "
+            "'container_name', 'hostname', or 'ip_address'"
+        )
+
+    def _resolve_container_by_ip(self, ip: str) -> str:
+        """Find container name by IP address using docker inspect."""
+        try:
+            result = subprocess.run(
+                ["docker", "ps", "--format", "{{.Names}}"],
+                capture_output=True, text=True, timeout=5
+            )
+            candidates = [
+                name.strip() for name in result.stdout.splitlines()
+                if "pdsno" in name and "lc" not in name and "rc" not in name
+                and "gc" not in name
+            ]
+            for name in candidates:
+                ip_result = subprocess.run(
+                    ["docker", "inspect", "--format",
+                     "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", name],
+                    capture_output=True, text=True, timeout=5
+                )
+                if ip in ip_result.stdout:
+                    return name
+        except Exception as e:
+            self.logger.warning(f"Container IP lookup failed: {e}")
+        raise ValueError(f"No container found with IP {ip}")
+
+    def connect(self, device_info: Dict) -> bool:
+        """
+        Verify container is reachable via docker exec.
+        No persistent connection needed for docker exec model.
+        """
+        self._device_info = device_info
+        try:
+            container = self._resolve_container_name()
+            result = subprocess.run(
+                ["docker", "exec", container, "vtysh", "-c", "show version"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                self._container_name = container
+                self.logger.info(
+                    f"FRRAdapter connected to {container} via docker exec"
+                )
+                return True
+            else:
+                self.logger.error(
+                    f"vtysh not available in {container}: {result.stderr[:200]}"
+                )
+                return False
+        except Exception as e:
+            self.logger.error(f"FRRAdapter connect failed: {e}")
+            return False
+
+    def translate_intent(self, intent: ConfigIntent) -> List[str]:
+        """Translate a ConfigIntent to FRR vtysh commands."""
+        if intent.intent_type == IntentType.CREATE_VLAN:
+            vlan_id = intent.parameters["vlan_id"]
+            name = intent.parameters.get("name", "")
+            commands = ["configure terminal", f"vlan {vlan_id}"]
+            if name:
+                commands.append(f"  name {name}")
+            commands.extend(["exit", "end", "write memory"])
+            return commands
+
+        if intent.intent_type == IntentType.DELETE_VLAN:
+            vlan_id = intent.parameters["vlan_id"]
+            return [
+                "configure terminal",
+                f"no vlan {vlan_id}",
+                "end",
+                "write memory",
+            ]
+
+        if intent.intent_type == IntentType.CONFIGURE_INTERFACE:
+            iface = intent.parameters["interface"]
+            commands = ["configure terminal", f"interface {iface}"]
+            if "description" in intent.parameters:
+                commands.append(f"  description {intent.parameters['description']}")
+            if "ip_address" in intent.parameters:
+                commands.append(
+                    f"  ip address {intent.parameters['ip_address']}"
+                )
+            commands.extend(["exit", "end", "write memory"])
+            return commands
+
+        raise NotImplementedError(
+            f"FRRAdapter does not support intent type: {intent.intent_type}"
+        )
+
+    def apply_config(self, commands: List[str]) -> Dict:
+        """
+        Apply configuration commands to the FRR container via docker exec.
+
+        Each command is sent as a separate vtysh -c invocation.
+        Stops on first failure and returns the error.
+        """
+        if not self._container_name:
+            return {
+                "success": False,
+                "error": "Not connected — call connect() first",
+            }
+
+        outputs = []
+        for cmd in commands:
+            cmd = cmd.strip()
+            if not cmd:
+                continue
+            try:
+                result = subprocess.run(
+                    ["docker", "exec", self._container_name,
+                     "vtysh", "-c", cmd],
+                    capture_output=True, text=True, timeout=10
+                )
+                outputs.append({
+                    "command": cmd,
+                    "output": result.stdout.strip(),
+                    "returncode": result.returncode,
+                })
+                if result.returncode != 0:
+                    self.logger.error(
+                        f"vtysh command failed on {self._container_name}: "
+                        f"cmd={cmd!r} stderr={result.stderr[:200]}"
+                    )
+                    return {
+                        "success": False,
+                        "error": result.stderr.strip() or result.stdout.strip(),
+                        "failed_command": cmd,
+                        "outputs": outputs,
+                    }
+            except subprocess.TimeoutExpired:
+                return {
+                    "success": False,
+                    "error": f"Timeout executing: {cmd}",
+                    "outputs": outputs,
+                }
+            except Exception as e:
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "outputs": outputs,
+                }
+
+        self.logger.info(
+            f"FRRAdapter applied {len(outputs)} commands to "
+            f"{self._container_name}"
+        )
+        return {"success": True, "outputs": outputs}
+
+    def get_running_config(self) -> str:
+        """Retrieve running configuration from FRR container."""
+        if not self._container_name:
+            return ""
+        try:
+            result = subprocess.run(
+                ["docker", "exec", self._container_name,
+                 "vtysh", "-c", "show running-config"],
+                capture_output=True, text=True, timeout=15
+            )
+            return result.stdout if result.returncode == 0 else ""
+        except Exception as e:
+            self.logger.warning(f"get_running_config failed: {e}")
+            return ""
+
+    def verify_config(self, intent: ConfigIntent) -> bool:
+        """Verify that an intent was applied successfully."""
+        if not self._container_name:
+            return False
+        try:
+            if intent.intent_type == IntentType.CREATE_VLAN:
+                vlan_id = intent.parameters["vlan_id"]
+                result = subprocess.run(
+                    ["docker", "exec", self._container_name,
+                     "vtysh", "-c", f"show vlan id {vlan_id}"],
+                    capture_output=True, text=True, timeout=10
+                )
+                return result.returncode == 0 and str(vlan_id) in result.stdout
+        except Exception as e:
+            self.logger.warning(f"verify_config failed: {e}")
+        return False
+
+    def disconnect(self):
+        """No persistent connection to close in docker exec model."""
+        self._container_name = None

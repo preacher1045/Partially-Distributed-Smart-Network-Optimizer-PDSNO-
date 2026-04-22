@@ -16,6 +16,7 @@ from .cisco_ios_adapter import CiscoIOSAdapter
 from .juniper_adapter import JuniperAdapter
 from .arista_adapter import AristaAdapter
 from .netconf_adapter import NETCONFAdapter
+from .frr_adapter import FRRAdapter
 
 
 class VendorAdapterFactory:
@@ -29,6 +30,8 @@ class VendorAdapterFactory:
         ('juniper', 'junos'): JuniperAdapter,
         ('arista', 'eos'): AristaAdapter,
         ('netconf', 'generic'): NETCONFAdapter,
+        ('frr', 'linux'): FRRAdapter,
+        ('frr', 'frr'): FRRAdapter,  # Register for common FRR device_type strings from SNMP discovery
     }
     
     @classmethod
