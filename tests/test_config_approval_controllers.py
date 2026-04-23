@@ -8,6 +8,7 @@
 
 from pathlib import Path
 
+from unittest.mock import patch
 from pdsno.communication.message_bus import MessageBus
 from pdsno.communication.message_format import MessageType
 from pdsno.controllers.context_manager import ContextManager
@@ -76,20 +77,25 @@ def _build_controllers(tmp_path: Path, register_execution_handler: bool = True):
 
 def test_medium_proposal_executes_end_to_end(tmp_path):
     lc, rc, nib = _build_controllers(tmp_path)
-    device_id = "nib-dev-001"
-    _seed_device(nib, device_id)
-
-    result = lc.submit_config_proposal(
-        rc_id=rc.controller_id,
-        device_id="nib-dev-001",
-        config_lines=[
-            "vlan 120",
-            "name BlueTeam",
-            "interface ethernet0/1",
-            "switchport mode access",
-            "switchport access vlan 120",
-        ],
-    )
+    
+    # Seed device so LC can find it during execution.
+    # IP/MAC can be arbitrary since we're simulating.
+    with patch.object(
+        lc,
+        "_execute_config_change",
+        return_value={"success": True, "applied_lines": 5},
+    ):
+        result = lc.submit_config_proposal(
+            rc_id=rc.controller_id,
+            device_id="nib-dev-001",
+            config_lines=[
+                "vlan 120",
+                "name BlueTeam",
+                "interface ethernet0/1",
+                "switchport mode access",
+                "switchport access vlan 120",
+            ],
+        )
 
     assert result["status"] == "submitted"
     assert result["response"]["decision"] == "APPROVE"

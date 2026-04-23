@@ -4,11 +4,24 @@
 # This file is part of PDSNO.
 # See the LICENSE file in the project root for license information.
 
+# FROM python:3.10-slim
+
+# # ICMP scanner relies on the ping binary in containerized LC runtime.
+# RUN apt-get update \
+#     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends iputils-ping \
+#     && rm -rf /var/lib/apt/lists/*
+
+# WORKDIR /pdsno
+# CMD ["python", "examples/lc_process.py"]
+
 FROM python:3.10-slim
 
 # ICMP scanner relies on the ping binary in containerized LC runtime.
 RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends iputils-ping \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+       --no-install-recommends \
+       iputils-ping \
+       docker.io \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /pdsno

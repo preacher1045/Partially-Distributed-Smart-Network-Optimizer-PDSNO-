@@ -85,6 +85,7 @@ topology:
       binds:
         - /home/schoolboy/PDSNO:/pdsno:rw
         - /home/schoolboy/PDSNO/.venv/lib/python3.10/site-packages:/usr/local/lib/python3.10/site-packages:ro
+        - /var/run/docker.sock:/var/run/docker.sock:rw
       env:
         PYTHONPATH: /pdsno
         PDSNO_DB_PATH: /pdsno/sim_distributed/pdsno.db

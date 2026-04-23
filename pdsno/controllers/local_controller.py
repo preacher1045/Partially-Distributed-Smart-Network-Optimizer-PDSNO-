@@ -58,14 +58,14 @@ class LocalController(BaseController):
         simulate: bool = False,
         mqtt_broker: Optional[str] = None,
         mqtt_port: int = 1883,
-        key_manager=None  # Phase 6D: Key distribution
+        key_manager=None,  # Phase 6D: Key distribution
     ):
         super().__init__(
             controller_id=controller_id,
             role="local",
             context_manager=context_manager,
             region=region,
-            nib_store=nib_store
+            nib_store=nib_store,
         )
         
         self.subnet = subnet
@@ -73,6 +73,7 @@ class LocalController(BaseController):
         self.http_client = http_client
         self.simulate = simulate
         self.last_scan_devices: Dict[str, Device] = {}  # MAC -> Device
+        self.simulate = simulate
 
         self.sensitivity_classifier = ConfigSensitivityClassifier()
         self.approval_engine = ApprovalWorkflowEngine(
@@ -490,6 +491,7 @@ class LocalController(BaseController):
                 "proposal_id": request.request_id,
             }
 
+        # For simplicity, if the request is already auto-approved, we can return immediately without sending a message.
         if request.state.value == "APPROVED":
             return {
                 "status": "approved",
@@ -670,6 +672,11 @@ class LocalController(BaseController):
         Phase C: real execution via FRRAdapter docker exec.
         Phase D: add rollback on partial failure.
         """
+        
+        if getattr(self, 'simulate', False):
+            # In simulate mode, return success without touching any adapter
+            return {"success": True, "applied_lines": len(config_lines)}
+                
         if not device_id or not config_lines:
             return {"success": False, "reason": "MISSING_EXECUTION_INPUT"}
 

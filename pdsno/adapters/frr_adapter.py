@@ -163,62 +163,52 @@ class FRRAdapter(VendorAdapter):
 
     def apply_config(self, commands: List[str]) -> Dict:
         """
-        Apply configuration commands to the FRR container via docker exec.
-
-        Each command is sent as a separate vtysh -c invocation.
-        Stops on first failure and returns the error.
+        Apply configuration commands via a single vtysh invocation.
+        All commands are passed as separate -c flags so they run
+        in the same vtysh session with shared context.
         """
         if not self._container_name:
-            return {
-                "success": False,
-                "error": "Not connected — call connect() first",
-            }
+            return {"success": False, "error": "Not connected"}
 
-        outputs = []
-        for cmd in commands:
-            cmd = cmd.strip()
-            if not cmd:
-                continue
-            try:
-                result = subprocess.run(
-                    ["docker", "exec", self._container_name,
-                     "vtysh", "-c", cmd],
-                    capture_output=True, text=True, timeout=10
+        # Filter empty lines
+        cmds = [c.strip() for c in commands if c.strip()]
+        if not cmds:
+            return {"success": True, "outputs": []}
+
+        # Build: docker exec <container> vtysh -c cmd1 -c cmd2 ...
+        exec_args = ["docker", "exec", self._container_name, "vtysh"]
+        for cmd in cmds:
+            exec_args.extend(["-c", cmd])
+
+        try:
+            result = subprocess.run(
+                exec_args,
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode != 0:
+                self.logger.error(
+                    f"vtysh failed on {self._container_name}: "
+                    f"{result.stderr[:300]}"
                 )
-                outputs.append({
-                    "command": cmd,
-                    "output": result.stdout.strip(),
-                    "returncode": result.returncode,
-                })
-                if result.returncode != 0:
-                    self.logger.error(
-                        f"vtysh command failed on {self._container_name}: "
-                        f"cmd={cmd!r} stderr={result.stderr[:200]}"
-                    )
-                    return {
-                        "success": False,
-                        "error": result.stderr.strip() or result.stdout.strip(),
-                        "failed_command": cmd,
-                        "outputs": outputs,
-                    }
-            except subprocess.TimeoutExpired:
                 return {
                     "success": False,
-                    "error": f"Timeout executing: {cmd}",
-                    "outputs": outputs,
+                    "error": result.stderr.strip() or result.stdout.strip(),
+                    "commands": cmds,
                 }
-            except Exception as e:
-                return {
-                    "success": False,
-                    "error": str(e),
-                    "outputs": outputs,
-                }
-
-        self.logger.info(
-            f"FRRAdapter applied {len(outputs)} commands to "
-            f"{self._container_name}"
-        )
-        return {"success": True, "outputs": outputs}
+            self.logger.info(
+                f"FRRAdapter applied {len(cmds)} commands to "
+                f"{self._container_name}: {result.stdout[:200]}"
+            )
+            return {
+                "success": True,
+                "output": result.stdout,
+                "commands": cmds,
+            }
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "vtysh execution timed out"}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+        
 
     def get_running_config(self) -> str:
         """Retrieve running configuration from FRR container."""
