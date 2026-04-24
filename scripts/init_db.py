@@ -31,6 +31,7 @@ Usage:
 import argparse
 import sys
 import sqlite3
+import os
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -55,6 +56,14 @@ class DatabaseInitializer:
         """
         self.db_path = db_path
         self.is_sqlite = not db_path.startswith('postgresql://')
+
+    def _get_nib_secret_key(self) -> bytes:
+        secret = os.environ.get("PDSNO_NIB_SECRET_KEY")
+        if not secret:
+            raise RuntimeError(
+                "PDSNO_NIB_SECRET_KEY must be set to initialize NIBStore."
+            )
+        return secret.encode("utf-8")
     
     def init_schema(self, drop_existing: bool = False):
         """
@@ -280,7 +289,7 @@ class DatabaseInitializer:
         """Add sample seed data for testing"""
         print("Adding seed data...")
         
-        nib = NIBStore(self.db_path)
+        nib = NIBStore(self.db_path, secret_key=self._get_nib_secret_key())
         
         # Add sample devices
         devices = [
@@ -387,7 +396,7 @@ class DatabaseInitializer:
         print("Verifying schema...")
         
         try:
-            nib = NIBStore(self.db_path)
+            nib = NIBStore(self.db_path, secret_key=self._get_nib_secret_key())
             
             # Check tables exist
             required_tables = [

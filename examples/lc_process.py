@@ -66,10 +66,11 @@ RC_URL       = os.environ.get("PDSNO_RC_URL",       "http://127.0.0.1:8002")
 RC_ID        = os.environ.get("PDSNO_RC_ID",        "regional_cntl_zone-A_1")
 DISCOVERY_INTERVAL = int(os.environ.get("PDSNO_DISCOVERY_INTERVAL", "30"))
 LC_REST_PORT = int(os.environ.get("PDSNO_LC_REST_PORT", "8003"))
-MSG_SIGNING_SECRET = os.environ.get(
-    "PDSNO_MESSAGE_SIGNING_SECRET",
-    "pdsno-message-signing-secret-change-in-production",
-)
+MSG_SIGNING_SECRET = os.environ.get("PDSNO_MESSAGE_SIGNING_SECRET")
+if not MSG_SIGNING_SECRET:
+    raise RuntimeError(
+        "PDSNO_MESSAGE_SIGNING_SECRET is required for distributed mode."
+    )
 
 AUTHENTICATOR = None
 

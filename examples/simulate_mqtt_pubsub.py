@@ -43,14 +43,18 @@ def setup_logging():
 def check_mqtt_broker():
     """Check if MQTT broker is running"""
     import socket
-    
+
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(2)
         result = sock.connect_ex(('localhost', 1883))
         sock.close()
         return result == 0
-    except:
+    except OSError as exc:
+        logging.getLogger(__name__).debug(
+            "MQTT broker check failed: %s",
+            exc,
+        )
         return False
 
 

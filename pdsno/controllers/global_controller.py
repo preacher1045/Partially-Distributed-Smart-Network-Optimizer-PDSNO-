@@ -17,8 +17,14 @@ import json
 import os
 import secrets
 import uuid
+import base64
 from datetime import datetime, timezone, timedelta
 from typing import Dict
+from pathlib import Path
+
+from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives import serialization
+from pathlib import Path
 
 from pdsno.controllers.base_controller import BaseController
 from pdsno.communication.message_format import MessageEnvelope, MessageType
@@ -43,11 +49,6 @@ class GlobalController(BaseController):
     # Configuration constants
     FRESHNESS_WINDOW_MINUTES = 5
     CHALLENGE_TIMEOUT_SECONDS = 30
-    # Default value for development/testing - MUST be set via env var in production
-    BOOTSTRAP_SECRET = os.getenv(
-        "PDSNO_BOOTSTRAP_SECRET",
-        "pdsno-bootstrap-secret-change-in-production"
-    ).encode()
     
     def __init__(
         self,
@@ -64,6 +65,9 @@ class GlobalController(BaseController):
             region=None,  # Global controllers have no specific region
             nib_store=nib_store
         )
+
+        self.bootstrap_secret = self._load_bootstrap_secret()
+        self.signing_private_key, self.signing_public_key_b64 = self._load_signing_keypair()
         
         # In-memory challenge store (short-lived)
         self.pending_challenges: Dict[str, Dict] = {}
@@ -205,6 +209,50 @@ class GlobalController(BaseController):
         if env_secret:
             return hashlib.sha256(env_secret.encode("utf-8")).digest()
         return hashlib.sha256(f"pdsno-exec-token::{region}".encode("utf-8")).digest()
+
+    @staticmethod
+    def _load_signing_keypair() -> tuple[ed25519.Ed25519PrivateKey, str]:
+        env_key = os.getenv("PDSNO_GC_SIGNING_KEY")
+        if env_key:
+            key_bytes = base64.b64decode(env_key)
+            private_key = ed25519.Ed25519PrivateKey.from_private_bytes(key_bytes)
+        else:
+            key_path = Path("config/gc_signing.key")
+            if key_path.exists():
+                key_bytes = key_path.read_bytes()
+                private_key = ed25519.Ed25519PrivateKey.from_private_bytes(key_bytes)
+            else:
+                private_key = ed25519.Ed25519PrivateKey.generate()
+
+        public_key = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        return private_key, base64.b64encode(public_key).decode("utf-8")
+
+    def _sign_payload(self, payload: Dict) -> str:
+        data = json.dumps(payload, sort_keys=True).encode("utf-8")
+        signature = self.signing_private_key.sign(data)
+        return base64.b64encode(signature).decode("utf-8")
+
+    @staticmethod
+    def _load_bootstrap_secret() -> bytes:
+        env_secret = os.getenv("PDSNO_BOOTSTRAP_SECRET")
+        if env_secret:
+            secret = env_secret.encode("utf-8")
+        else:
+            secret_path = Path("config/bootstrap_secret.key")
+            if not secret_path.exists():
+                raise RuntimeError(
+                    "Bootstrap secret not configured. Set PDSNO_BOOTSTRAP_SECRET "
+                    "or create config/bootstrap_secret.key."
+                )
+            secret = secret_path.read_bytes()
+
+        if len(secret) < 32:
+            raise RuntimeError("Bootstrap secret must be at least 32 bytes")
+
+        return secret
     
     def handle_validation_request(self, envelope: MessageEnvelope) -> MessageEnvelope:
         """
@@ -317,7 +365,7 @@ class GlobalController(BaseController):
         # Compute expected token
         token_input = f"{temp_id}|{region}|{controller_type}".encode()
         expected_token = hmac.new(
-            self.BOOTSTRAP_SECRET,
+            self.bootstrap_secret,
             token_input,
             hashlib.sha256
         ).hexdigest()
@@ -355,8 +403,10 @@ class GlobalController(BaseController):
             correlation_id=envelope.message_id,
             payload={
                 "challenge_id": challenge_id,
-                "nonce": nonce.hex(),  # Send as hex string
-                "expires_at": expires_at.isoformat()
+                "temp_id": payload["temp_id"],
+                "nonce": base64.b64encode(nonce).decode("utf-8"),
+                "issued_at": datetime.now(timezone.utc).isoformat(),
+                "expires_at": expires_at.isoformat(),
             }
         )
     
@@ -385,21 +435,20 @@ class GlobalController(BaseController):
             self.logger.warning(f"temp_id mismatch in challenge response")
             return {"reject": True, "reason": "TEMP_ID_MISMATCH"}
         
-        # Verify signature (PoC: simplified HMAC check)
-        # Phase 6 will use Ed25519 signature verification
-        expected_signature = hmac.new(
-            pending["nonce"],
-            b"signed_by_controller",  # Placeholder
-            hashlib.sha256
-        ).hexdigest()
+        public_key_b64 = pending["public_key"]
+        try:
+            public_key_bytes = base64.b64decode(public_key_b64)
+            signature = base64.b64decode(signed_nonce)
+            public_key = ed25519.Ed25519PublicKey.from_public_bytes(public_key_bytes)
+            public_key.verify(signature, pending["nonce"])
+        except Exception:
+            self.logger.warning(f"Invalid signature from {temp_id}")
+            del self.pending_challenges[challenge_id]
+            return {"reject": True, "reason": "INVALID_SIGNATURE"}
         
         # Consume challenge regardless of outcome
         original_request = pending["original_request"]
         del self.pending_challenges[challenge_id]
-        
-        if not hmac.compare_digest(signed_nonce, expected_signature):
-            self.logger.warning(f"Invalid signature from {temp_id}")
-            return {"reject": True, "reason": "INVALID_SIGNATURE"}
         
         self.logger.info(f"Challenge {challenge_id} verified successfully")
         return {"reject": False, "original_request": original_request}
@@ -447,8 +496,8 @@ class GlobalController(BaseController):
             "public_key": request["public_key"],
             "issued_by": self.controller_id,
             "issued_at": issued_at.isoformat(),
-            "signature": "hmac-placeholder"  # Would be actual HMAC
         }
+        certificate["signature"] = self._sign_payload(certificate)
         
         # Generate delegation credential for RCs
         delegation_credential = None
@@ -456,8 +505,8 @@ class GlobalController(BaseController):
             delegation_credential = {
                 "scope": region,
                 "permitted_actions": ["validate_local_controllers"],
-                "signature": "hmac-placeholder"
             }
+            delegation_credential["signature"] = self._sign_payload(delegation_credential)
         
         # Write to NIB (atomically with audit event)
         try:

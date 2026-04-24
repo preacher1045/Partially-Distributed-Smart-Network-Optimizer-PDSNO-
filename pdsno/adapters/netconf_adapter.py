@@ -153,6 +153,10 @@ class NETCONFAdapter(VendorAdapter):
                 return str(intent.parameters['vlan_id']) in config
             
             return True
-        
-        except:
+
+        except (AuthenticationError, SSHError, ConnectionError, ValueError) as exc:
+            self.logger.warning("NETCONF verify failed: %s", exc)
+            return False
+        except Exception as exc:
+            self.logger.exception("NETCONF verify failed with unexpected error: %s", exc)
             return False

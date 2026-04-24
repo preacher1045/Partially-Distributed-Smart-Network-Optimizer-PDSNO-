@@ -63,10 +63,11 @@ REST_PORT    = int(os.environ.get("PDSNO_REST_PORT", "8002"))
 REGION       = os.environ.get("PDSNO_REGION",       "zone-A")
 TEMP_ID      = os.environ.get("PDSNO_RC_TEMP_ID",   "temp-rc-zone-a")
 LC_URL       = os.environ.get("PDSNO_LC_URL",       "http://172.20.20.7:8003")
-MSG_SIGNING_SECRET = os.environ.get(
-    "PDSNO_MESSAGE_SIGNING_SECRET",
-    "pdsno-message-signing-secret-change-in-production",
-)
+MSG_SIGNING_SECRET = os.environ.get("PDSNO_MESSAGE_SIGNING_SECRET")
+if not MSG_SIGNING_SECRET:
+    raise RuntimeError(
+        "PDSNO_MESSAGE_SIGNING_SECRET is required for distributed mode."
+    )
 
 
 def _derive_message_signing_key(secret: str) -> bytes:

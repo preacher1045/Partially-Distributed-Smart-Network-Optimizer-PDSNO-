@@ -17,6 +17,7 @@ from typing import Any, Dict
 from filelock import FileLock
 import tempfile
 import shutil
+import logging
 
 
 class ContextManager:
@@ -36,6 +37,7 @@ class ContextManager:
         """
         self.context_path = Path(context_path)
         self.lock_path = Path(str(self.context_path) + ".lock")
+        self.logger = logging.getLogger(__name__)
         
         # Ensure parent directory exists
         self.context_path.parent.mkdir(parents=True, exist_ok=True)
@@ -91,12 +93,17 @@ class ContextManager:
                 
                 # Atomic rename (overwrites existing file)
                 shutil.move(temp_path, self.context_path)
-            except Exception:
+            except Exception as exc:
                 # Clean up temp file on error
                 try:
                     Path(temp_path).unlink(missing_ok=True)
-                except:
-                    pass
+                except OSError as cleanup_exc:
+                    self.logger.warning(
+                        "Failed to remove temp context file %s: %s",
+                        temp_path,
+                        cleanup_exc
+                    )
+                self.logger.error("Context write failed: %s", exc)
                 raise
     
     def update(self, updates: Dict[str, Any]) -> None:

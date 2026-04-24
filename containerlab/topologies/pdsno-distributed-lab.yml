@@ -54,7 +54,7 @@ topology:
         PDSNO_GC_ID: global_cntl_1
         PDSNO_DB_PATH: /pdsno/sim_distributed/pdsno.db
         PDSNO_CONTEXT_PATH: /pdsno/sim_distributed/gc_context.yaml
-        PDSNO_MESSAGE_SIGNING_SECRET: pdsno-message-signing-secret-change-in-production
+        PDSNO_MESSAGE_SIGNING_SECRET: ${PDSNO_MESSAGE_SIGNING_SECRET}
         PDSNO_REST_PORT: "8001"
       cmd: bash -c "cd /pdsno && python examples/gc_process_distributed.py"
 
@@ -69,7 +69,7 @@ topology:
         PYTHONPATH: /pdsno
         PDSNO_DB_PATH: /pdsno/sim_distributed/pdsno.db
         PDSNO_CONTEXT_PATH: /pdsno/sim_distributed/rc_context.yaml
-        PDSNO_MESSAGE_SIGNING_SECRET: pdsno-message-signing-secret-change-in-production
+        PDSNO_MESSAGE_SIGNING_SECRET: ${PDSNO_MESSAGE_SIGNING_SECRET}
         PDSNO_GC_URL: http://172.20.20.5:8001
         PDSNO_GC_ID: global_cntl_1
         PDSNO_REGION: zone-A
@@ -90,7 +90,7 @@ topology:
         PYTHONPATH: /pdsno
         PDSNO_DB_PATH: /pdsno/sim_distributed/pdsno.db
         PDSNO_CONTEXT_PATH: /pdsno/sim_distributed/lc_context.yaml
-        PDSNO_MESSAGE_SIGNING_SECRET: pdsno-message-signing-secret-change-in-production
+        PDSNO_MESSAGE_SIGNING_SECRET: ${PDSNO_MESSAGE_SIGNING_SECRET}
         PDSNO_RC_URL: http://172.20.20.6:8002
         PDSNO_RC_ID: regional_cntl_zone-A_1
         PDSNO_LC_ID: local_cntl_zone-a_001

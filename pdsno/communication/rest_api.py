@@ -84,8 +84,60 @@ class RESTClient:
 
 class RESTServer:
     """
-    Placeholder for REST server implementation.
-    
-    Full implementation requires FastAPI and will be added
-    in later phases when controllers need to expose REST endpoints.
+    REST server wrapper for controller endpoints.
+
+    Uses ControllerRESTServer to expose health and message routes.
     """
+
+    def __init__(
+        self,
+        controller_id: str,
+        host: str = "127.0.0.1",
+        port: int = 8000,
+        title: Optional[str] = None,
+        authenticator=None,
+        enable_tls: bool = False,
+        cert_file: Optional[str] = None,
+        key_file: Optional[str] = None,
+        ca_file: Optional[str] = None,
+        client_cert_required: bool = False,
+        enable_rate_limiting: bool = False,
+        requests_per_minute: int = 60,
+        burst_size: int = 10,
+        enable_metrics: bool = False,
+        metrics_port: int = 9090,
+    ):
+        from pdsno.communication.rest_server import ControllerRESTServer
+
+        self._server = ControllerRESTServer(
+            controller_id=controller_id,
+            host=host,
+            port=port,
+            title=title,
+            authenticator=authenticator,
+            enable_tls=enable_tls,
+            cert_file=cert_file,
+            key_file=key_file,
+            ca_file=ca_file,
+            client_cert_required=client_cert_required,
+            enable_rate_limiting=enable_rate_limiting,
+            requests_per_minute=requests_per_minute,
+            burst_size=burst_size,
+            enable_metrics=enable_metrics,
+            metrics_port=metrics_port,
+        )
+
+    def register_handler(self, message_type: MessageType, handler):
+        return self._server.register_handler(message_type, handler)
+
+    async def start(self):
+        await self._server.start()
+
+    def start_background(self):
+        self._server.start_background()
+
+    def get_base_url(self) -> str:
+        return self._server.get_base_url()
+
+    def get_endpoint_url(self, message_type: MessageType) -> str:
+        return self._server.get_endpoint_url(message_type)

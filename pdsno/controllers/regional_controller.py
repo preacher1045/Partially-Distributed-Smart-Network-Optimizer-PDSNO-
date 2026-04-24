@@ -16,8 +16,13 @@ import hashlib
 import json
 import os
 import uuid
+import base64
 from datetime import datetime, timezone
 from typing import Optional, Callable
+from pathlib import Path
+
+from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives import serialization
 
 from pdsno.controllers.base_controller import BaseController
 from pdsno.communication.message_format import MessageEnvelope, MessageType
@@ -99,6 +104,8 @@ class RegionalController(BaseController):
             controller_id=temp_id,
             shared_secret=self._load_execution_shared_secret(),
         )
+        self.bootstrap_secret = self._load_bootstrap_secret()
+        self.signing_private_key, self.signing_public_key_b64 = self._init_signing_keys()
         
         # REST server setup
         self.rest_server = None
@@ -250,8 +257,7 @@ class RegionalController(BaseController):
         
         # Generate bootstrap token and keys
         bootstrap_token = self._generate_bootstrap_token()
-        public_key = "ed25519-pubkey-placeholder"
-        self.private_key = "ed25519-privkey-placeholder"
+        public_key = self.signing_public_key_b64
         
         # Create validation request payload
         payload = {
@@ -306,17 +312,14 @@ class RegionalController(BaseController):
         """Handle the challenge from the Global Controller"""
         payload = envelope.payload
         challenge_id = payload["challenge_id"]
-        nonce_hex = payload["nonce"]
+        nonce_b64 = payload["nonce"]
         
         self.logger.info(f"Received challenge {challenge_id}")
         
-        # Sign the nonce (PoC: simplified HMAC, Phase 6 will use Ed25519)
-        nonce = bytes.fromhex(nonce_hex)
-        signed_nonce = hmac.new(
-            nonce,
-            b"signed_by_controller",  # Placeholder
-            hashlib.sha256
-        ).hexdigest()
+        # Sign the nonce with Ed25519
+        nonce = base64.b64decode(nonce_b64)
+        signature = self.signing_private_key.sign(nonce)
+        signed_nonce = base64.b64encode(signature).decode("utf-8")
         
         # Send challenge response
         response_payload = {
@@ -394,9 +397,40 @@ class RegionalController(BaseController):
         In production, this would be securely provisioned during deployment.
         For PoC, we generate it using the same secret the GC uses.
         """
-        BOOTSTRAP_SECRET = b"pdsno-bootstrap-secret-change-in-production"
         token_input = f"{self._initial_temp_id}|{self.region}|regional".encode()
-        return hmac.new(BOOTSTRAP_SECRET, token_input, hashlib.sha256).hexdigest()
+        return hmac.new(self.bootstrap_secret, token_input, hashlib.sha256).hexdigest()
+
+    def _init_signing_keys(self) -> tuple[ed25519.Ed25519PrivateKey, str]:
+        private_key = ed25519.Ed25519PrivateKey.generate()
+        public_key = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        return private_key, base64.b64encode(public_key).decode("utf-8")
+
+    def _sign_payload(self, payload: dict) -> str:
+        data = json.dumps(payload, sort_keys=True).encode("utf-8")
+        signature = self.signing_private_key.sign(data)
+        return base64.b64encode(signature).decode("utf-8")
+
+    @staticmethod
+    def _load_bootstrap_secret() -> bytes:
+        env_secret = os.getenv("PDSNO_BOOTSTRAP_SECRET")
+        if env_secret:
+            secret = env_secret.encode("utf-8")
+        else:
+            secret_path = Path("config/bootstrap_secret.key")
+            if not secret_path.exists():
+                raise RuntimeError(
+                    "Bootstrap secret not configured. Set PDSNO_BOOTSTRAP_SECRET "
+                    "or create config/bootstrap_secret.key."
+                )
+            secret = secret_path.read_bytes()
+
+        if len(secret) < 32:
+            raise RuntimeError("Bootstrap secret must be at least 32 bytes")
+
+        return secret
     
     # Message handlers (to be registered with message bus)
     
@@ -451,8 +485,8 @@ class RegionalController(BaseController):
             "public_key": public_key,
             "issued_by": self.controller_id,
             "issued_at": issued_at.isoformat(),
-            "signature": "hmac-placeholder"
         }
+        certificate["signature"] = self._sign_payload(certificate)
 
         try:
             controller_record = Controller(

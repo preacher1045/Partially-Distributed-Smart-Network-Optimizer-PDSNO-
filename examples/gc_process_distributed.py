@@ -56,10 +56,11 @@ DB_PATH      = os.environ.get("PDSNO_DB_PATH",      "./sim_distributed/pdsno.db"
 CONTEXT_PATH = os.environ.get("PDSNO_CONTEXT_PATH", "./sim_distributed/gc_context.yaml")
 REST_PORT    = int(os.environ.get("PDSNO_REST_PORT", "8001"))
 GC_ID        = os.environ.get("PDSNO_GC_ID",        "global_cntl_1")
-MSG_SIGNING_SECRET = os.environ.get(
-    "PDSNO_MESSAGE_SIGNING_SECRET",
-    "pdsno-message-signing-secret-change-in-production",
-)
+MSG_SIGNING_SECRET = os.environ.get("PDSNO_MESSAGE_SIGNING_SECRET")
+if not MSG_SIGNING_SECRET:
+    raise RuntimeError(
+        "PDSNO_MESSAGE_SIGNING_SECRET is required for distributed mode."
+    )
 
 
 def _derive_message_signing_key(secret: str) -> bytes:

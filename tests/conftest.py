@@ -13,6 +13,7 @@ Provides common fixtures for PDSNO tests.
 import pytest
 import tempfile
 import shutil
+import os
 from pathlib import Path
 
 from pdsno.controllers.context_manager import ContextManager
@@ -21,6 +22,16 @@ from pdsno.controllers.base_controller import BaseController
 from pdsno.controllers.global_controller import GlobalController
 from pdsno.controllers.regional_controller import RegionalController
 from pdsno.communication.message_bus import MessageBus
+
+
+os.environ.setdefault(
+    "PDSNO_NIB_SECRET_KEY",
+    "pdsno-test-nib-secret-key-32-bytes-long"
+)
+os.environ.setdefault(
+    "PDSNO_BOOTSTRAP_SECRET",
+    "pdsno-test-bootstrap-secret-32-bytes"  # 32+ bytes
+)
 
 
 @pytest.fixture

@@ -21,6 +21,7 @@ import hmac
 import hashlib
 import uuid
 import logging
+import os
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional, List
@@ -50,7 +51,7 @@ class NIBStore:
         self.logger = logging.getLogger(__name__)
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.secret_key = secret_key or b"pdsno-dev-secret-change-in-production"
+        self.secret_key = self._resolve_secret_key(secret_key)
         self._initialize_schema()
 
         with self._get_connection() as conn:
@@ -70,6 +71,28 @@ class NIBStore:
             raise
         finally:
             conn.close()
+
+    def _resolve_secret_key(self, secret_key: Optional[bytes]) -> bytes:
+        if secret_key is None:
+            env_secret = os.environ.get("PDSNO_NIB_SECRET_KEY")
+            if env_secret:
+                secret_key = env_secret.encode("utf-8")
+
+        if isinstance(secret_key, str):
+            secret_key = secret_key.encode("utf-8")
+
+        if not secret_key:
+            raise ValueError(
+                "NIBStore requires a secret key. Set PDSNO_NIB_SECRET_KEY or "
+                "pass secret_key to NIBStore."
+            )
+
+        if len(secret_key) < 16:
+            raise ValueError(
+                "NIBStore secret key must be at least 16 bytes."
+            )
+
+        return secret_key
 
     def _initialize_schema(self):
         """Create NIB tables if they don't exist. Schema matches nib_spec.md exactly."""

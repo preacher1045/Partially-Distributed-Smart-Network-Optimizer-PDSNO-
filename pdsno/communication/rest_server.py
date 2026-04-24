@@ -270,6 +270,46 @@ class ControllerRESTServer:
                 "host": self.host,
                 "port": self.port
             }
+
+        @self.app.post("/api/messages")
+        async def generic_message(request: Request):
+            """Compatibility endpoint for RESTClient"""
+            try:
+                body = await request.json()
+                envelope = MessageEnvelope.from_dict(body)
+
+                handler = self.handlers.get(envelope.message_type)
+                if not handler:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"No handler for message type {envelope.message_type.value}"
+                    )
+
+                response_obj = handler(envelope)
+                if response_obj is None:
+                    return {"status": "accepted"}
+
+                if isinstance(response_obj, MessageEnvelope):
+                    response_dict = response_obj.to_dict()
+                    if self.authenticator:
+                        response_dict = self.authenticator.sign_message(response_dict)
+                    return response_dict
+
+                if isinstance(response_obj, dict):
+                    return response_obj
+
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        f"Handler for {envelope.message_type.value} returned unsupported "
+                        f"type: {type(response_obj).__name__}"
+                    )
+                )
+            except HTTPException:
+                raise
+            except Exception as e:
+                self.logger.error("Error handling api/messages: %s", e, exc_info=True)
+                raise HTTPException(status_code=500, detail=str(e))
     
     async def start(self):
         """Start the FastAPI server (async)"""

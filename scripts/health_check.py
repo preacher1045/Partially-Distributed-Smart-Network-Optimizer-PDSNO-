@@ -49,8 +49,8 @@ def check_metrics(url, timeout=5):
         response = requests.get(metrics_url, timeout=timeout)
         
         return response.status_code == 200
-    
-    except:
+
+    except requests.exceptions.RequestException as exc:
         return False
 
 

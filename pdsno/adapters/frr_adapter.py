@@ -55,14 +55,29 @@ class FRRAdapter(VendorAdapter):
 
         Uses device_info['container_name'] if provided directly.
         Otherwise derives from hostname: clab-<topology>-<hostname>
-        Falls back to ip-based lookup via docker inspect.
+        Handles containerlab node names which may or may not have numeric suffixes.
         """
         if self._device_info.get("container_name"):
             return self._device_info["container_name"]
 
         hostname = self._device_info.get("hostname", "")
         if hostname:
-            return f"clab-{self.TOPOLOGY_NAME}-{hostname}"
+            # Try exact hostname first
+            primary = f"clab-{self.TOPOLOGY_NAME}-{hostname}"
+            if self._container_exists(primary):
+                return primary
+            
+            # Strip trailing -NN suffix (containerlab may not include it)
+            import re
+            stripped = re.sub(r'-\d+$', '', hostname)
+            if stripped != hostname:
+                fallback = f"clab-{self.TOPOLOGY_NAME}-{stripped}"
+                if self._container_exists(fallback):
+                    return fallback
+            
+            # If neither exists but hostname was provided, return the primary anyway
+            # (connect will fail with clear error)
+            return primary
 
         # Fall back to IP-based lookup
         ip = self._device_info.get("ip_address") or self._device_info.get("ip", "")
@@ -73,6 +88,17 @@ class FRRAdapter(VendorAdapter):
             "Cannot resolve container name: device_info must contain "
             "'container_name', 'hostname', or 'ip_address'"
         )
+
+    def _container_exists(self, container_name: str) -> bool:
+        """Check if a container with the given name exists and is running."""
+        try:
+            result = subprocess.run(
+                ["docker", "ps", "--filter", f"name={container_name}", "--quiet"],
+                capture_output=True, text=True, timeout=5
+            )
+            return bool(result.stdout.strip())
+        except Exception:
+            return False
 
     def _resolve_container_by_ip(self, ip: str) -> str:
         """Find container name by IP address using docker inspect."""
@@ -107,7 +133,7 @@ class FRRAdapter(VendorAdapter):
         try:
             container = self._resolve_container_name()
             result = subprocess.run(
-                ["docker", "exec", container, "vtysh", "-c", "show version"],
+                ["docker", "exec", container, "vtysh", "-n", "-c", "show version"],
                 capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
@@ -175,8 +201,9 @@ class FRRAdapter(VendorAdapter):
         if not cmds:
             return {"success": True, "outputs": []}
 
-        # Build: docker exec <container> vtysh -c cmd1 -c cmd2 ...
-        exec_args = ["docker", "exec", self._container_name, "vtysh"]
+        # Build: docker exec <container> vtysh -n -c cmd1 -c cmd2 ...
+        # -n flag: don't load config files on startup
+        exec_args = ["docker", "exec", self._container_name, "vtysh", "-n"]
         for cmd in cmds:
             exec_args.extend(["-c", cmd])
 

@@ -26,6 +26,8 @@ Security Features:
 import os
 import json
 import secrets
+import re
+import hashlib
 from typing import Dict, Optional, List
 from datetime import datetime, timezone
 from enum import Enum
@@ -466,6 +468,63 @@ class ExternalKMSAdapter:
         self.kms_type = kms_type
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.KMS")
+
+        self._azure_client = None
+
+    @staticmethod
+    def _azure_secret_name(secret_id: str) -> str:
+        """
+        Convert an arbitrary secret_id into an Azure Key Vault secret name.
+
+        Azure Key Vault secret names must be alphanumeric and hyphen.
+        We keep stable mapping by hashing when normalization is required.
+        """
+        if re.fullmatch(r"[0-9A-Za-z-]+", secret_id):
+            return secret_id
+
+        digest = hashlib.sha256(secret_id.encode("utf-8")).hexdigest()[:32]
+        return f"pdsno-{digest}"
+
+    def _get_azure_client(self):
+        """Initialize and memoize Azure Key Vault SecretClient."""
+        if self._azure_client is not None:
+            return self._azure_client
+
+        try:
+            from azure.identity import DefaultAzureCredential, ClientSecretCredential
+            from azure.keyvault.secrets import SecretClient
+        except Exception as e:  # pragma: no cover
+            raise RuntimeError(
+                "Azure Key Vault dependencies are not installed. "
+                "Install 'azure-identity' and 'azure-keyvault-secrets'."
+            ) from e
+
+        vault_url = (
+            self.config.get("vault_url")
+            or self.config.get("key_vault_url")
+            or self.config.get("url")
+            or os.environ.get("AZURE_KEY_VAULT_URL")
+        )
+        if not vault_url:
+            raise ValueError(
+                "Azure Key Vault URL is required. Set config['vault_url'] or AZURE_KEY_VAULT_URL."
+            )
+
+        tenant_id = self.config.get("tenant_id") or os.environ.get("AZURE_TENANT_ID")
+        client_id = self.config.get("client_id") or os.environ.get("AZURE_CLIENT_ID")
+        client_secret = self.config.get("client_secret") or os.environ.get("AZURE_CLIENT_SECRET")
+
+        if tenant_id and client_id and client_secret:
+            credential = ClientSecretCredential(
+                tenant_id=tenant_id,
+                client_id=client_id,
+                client_secret=client_secret,
+            )
+        else:
+            credential = DefaultAzureCredential()
+
+        self._azure_client = SecretClient(vault_url=vault_url, credential=credential)
+        return self._azure_client
     
     def store_secret(self, secret_id: str, secret_value: str) -> bool:
         """Store secret in external KMS"""
@@ -565,12 +624,33 @@ class ExternalKMSAdapter:
     
     def _store_azure(self, secret_id: str, secret_value: str) -> bool:
         """Store in Azure Key Vault"""
-        # Implementation would use azure-keyvault-secrets
-        raise NotImplementedError("Azure Key Vault not yet implemented")
+        try:
+            client = self._get_azure_client()
+            name = self._azure_secret_name(secret_id)
+
+            tags = {"pdsno_secret_id": secret_id}
+            client.set_secret(name, secret_value, tags=tags)
+
+            self.logger.info(f"Stored secret in Azure Key Vault: {secret_id}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to store in Azure Key Vault: {e}")
+            return False
     
     def _retrieve_azure(self, secret_id: str) -> Optional[str]:
         """Retrieve from Azure Key Vault"""
-        raise NotImplementedError("Azure Key Vault not yet implemented")
+        try:
+            client = self._get_azure_client()
+            name = self._azure_secret_name(secret_id)
+
+            secret = client.get_secret(name)
+            return secret.value
+
+        except Exception as e:
+            # If the SDK is installed, this might be ResourceNotFoundError; treat it as not found.
+            self.logger.error(f"Failed to retrieve from Azure Key Vault: {e}")
+            return None
 
 
 # Example usage:

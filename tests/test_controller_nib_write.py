@@ -42,7 +42,7 @@ def test_controller_written_to_nib(gc, rc, message_bus, nib_store):
     assert controller_record.region == "zone-A"
     assert controller_record.status == "active"
     assert controller_record.validated_by == "global_cntl_1"
-    assert controller_record.public_key == "ed25519-pubkey-placeholder"
+    assert controller_record.public_key
     
     # Verify audit event was written
     # This would require a get_events_by_type() method in NIBStore

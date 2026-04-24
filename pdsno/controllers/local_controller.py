@@ -491,16 +491,9 @@ class LocalController(BaseController):
                 "proposal_id": request.request_id,
             }
 
-        # For simplicity, if the request is already auto-approved, we can return immediately without sending a message.
-        if request.state.value == "APPROVED":
-            return {
-                "status": "approved",
-                "decision": "APPROVE",
-                "proposal_id": request.request_id,
-                "sensitivity": sensitivity.value,
-                "execution_mode": "auto_approved",
-            }
-
+        # Always send proposal to RC for audit trail and execution dispatch
+        # RC will send back EXECUTION_INSTRUCTION to trigger execution
+        # This applies even to LOW sensitivity configs
         payload = {
             "proposal_id": request.request_id,
             "device_id": device_id,
