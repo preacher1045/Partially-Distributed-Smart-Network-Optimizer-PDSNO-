@@ -1,0 +1,145 @@
+<mxfile host="65bd71144e">
+    <diagram id="config_low_activity_flow" name="Configuration Execution - Low Activity">
+        <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="1200" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                
+                <!-- Title -->
+                <mxCell id="title" value="Configuration Execution Flow - Low Activity Scenario" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+                    <mxGeometry x="200" y="10" width="600" height="30" as="geometry"/>
+                </mxCell>
+                
+                <!-- Actor Labels -->
+                <mxCell id="actor_admin" value="Admin/Operator" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+                    <mxGeometry x="80" y="50" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="actor_gc" value="Global Controller" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+                    <mxGeometry x="280" y="50" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="actor_rc" value="Regional Controller" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="50" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="actor_lc" value="Local Controller" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+                    <mxGeometry x="680" y="50" width="100" height="20" as="geometry"/>
+                </mxCell>
+                
+                <!-- Lifelines -->
+                <mxCell id="line_admin" edge="1" parent="1" source="actor_admin" target="actor_admin">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="130" y="70"/>
+                        <mxPoint x="130" y="800"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="line_gc" edge="1" parent="1" source="actor_gc" target="actor_gc">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="330" y="70"/>
+                        <mxPoint x="330" y="800"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="line_rc" edge="1" parent="1" source="actor_rc" target="actor_rc">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="530" y="70"/>
+                        <mxPoint x="530" y="800"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="line_lc" edge="1" parent="1" source="actor_lc" target="actor_lc">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="730" y="70"/>
+                        <mxPoint x="730" y="800"/>
+                    </mxGeometry>
+                </mxCell>
+                
+                <!-- Step 1: Submit Config -->
+                <mxCell id="step1_msg" value="1. Submit Config Intent" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=10;" edge="1" parent="1" source="actor_admin" target="actor_gc">
+                    <mxGeometry width="80" relative="1" as="geometry">
+                        <mxPoint x="130" y="100"/>
+                        <mxPoint x="330" y="100"/>
+                    </mxGeometry>
+                </mxCell>
+                
+                <mxCell id="step1_box" value="POST /config&#10;{intent data}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="150" y="110" width="130" height="40" as="geometry"/>
+                </mxCell>
+                
+                <!-- Step 2: GC Validates -->
+                <mxCell id="step2_box" value="2. GC Validates Intent&#10;- Schema check&#10;- Policy validation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="280" y="165" width="100" height="60" as="geometry"/>
+                </mxCell>
+                
+                <!-- Step 3: Create Config Record -->
+                <mxCell id="step3_box" value="3. Create Config Record&#10;- Store in NIB&#10;- Status: PENDING" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="280" y="250" width="100" height="60" as="geometry"/>
+                </mxCell>
+                
+                <!-- Step 4: Route to RC -->
+                <mxCell id="step4_msg" value="4. Forward Config (Low Priority Queue)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=9;dashed=1;" edge="1" parent="1" source="actor_gc" target="actor_rc">
+                    <mxGeometry width="80" relative="1" as="geometry">
+                        <mxPoint x="330" y="330"/>
+                        <mxPoint x="530" y="330"/>
+                    </mxGeometry>
+                </mxCell>
+                
+                <mxCell id="step4_box" value="Via MQTT (retain=true)&#10;Low activity = eventual delivery" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=8;" vertex="1" parent="1">
+                    <mxGeometry x="360" y="340" width="140" height="40" as="geometry"/>
+                </mxCell>
+                
+                <!-- Step 5: RC Queues -->
+                <mxCell id="step5_box" value="5. RC Receives &amp; Queues&#10;- Validate region scope&#10;- Queue for LC deployment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="480" y="400" width="100" height="60" as="geometry"/>
+                </mxCell>
+                
+                <!-- Step 6: Forward to LC -->
+                <mxCell id="step6_msg" value="6. Dispatch to LC (Async)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=9;dashed=1;" edge="1" parent="1" source="actor_rc" target="actor_lc">
+                    <mxGeometry width="80" relative="1" as="geometry">
+                        <mxPoint x="530" y="480"/>
+                        <mxPoint x="730" y="480"/>
+                    </mxGeometry>
+                </mxCell>
+                
+                <!-- Step 7: LC Executes -->
+                <mxCell id="step7_box" value="7. LC Executes Config&#10;- Load vendor adapter&#10;- Execute on device(s)&#10;- Collect result" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="680" y="500" width="100" height="70" as="geometry"/>
+                </mxCell>
+                
+                <!-- Step 8: Report Result -->
+                <mxCell id="step8_msg" value="8. Report Execution Result" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=9;dashed=1;" edge="1" parent="1" source="actor_lc" target="actor_rc">
+                    <mxGeometry width="80" relative="1" as="geometry">
+                        <mxPoint x="730" y="600"/>
+                        <mxPoint x="530" y="600"/>
+                    </mxGeometry>
+                </mxCell>
+                
+                <mxCell id="step8_box" value="SUCCESS/FAILURE&#10;+ device state" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=8;" vertex="1" parent="1">
+                    <mxGeometry x="550" y="610" width="80" height="35" as="geometry"/>
+                </mxCell>
+                
+                <!-- Step 9: RC Aggregates -->
+                <mxCell id="step9_msg" value="9. Aggregate Results" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=9;dashed=1;" edge="1" parent="1" source="actor_rc" target="actor_gc">
+                    <mxGeometry width="80" relative="1" as="geometry">
+                        <mxPoint x="530" y="670"/>
+                        <mxPoint x="330" y="670"/>
+                    </mxGeometry>
+                </mxCell>
+                
+                <!-- Step 10: GC Updates Status -->
+                <mxCell id="step10_box" value="10. GC Updates Config Status&#10;- Status: COMPLETED/FAILED&#10;- Store results in NIB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="280" y="700" width="100" height="60" as="geometry"/>
+                </mxCell>
+                
+                <!-- Step 11: Notify Admin -->
+                <mxCell id="step11_msg" value="11. Notify Admin (Poll or Webhook)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=9;" edge="1" parent="1" source="actor_gc" target="actor_admin">
+                    <mxGeometry width="80" relative="1" as="geometry">
+                        <mxPoint x="330" y="780"/>
+                        <mxPoint x="130" y="780"/>
+                    </mxGeometry>
+                </mxCell>
+                
+                <!-- Key Characteristics Box -->
+                <mxCell id="characteristics" value="Key Low-Activity Characteristics:&#10;• Asynchronous message queuing (eventual consistency)&#10;• Retry mechanisms for transient failures&#10;• State tracking in NIB for audit&#10;• Device state snapshot stored post-execution&#10;• No blocking waits (improve throughput)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffcc;strokeColor=#ffcc00;fontSize=9;align=left;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="850" width="800" height="80" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

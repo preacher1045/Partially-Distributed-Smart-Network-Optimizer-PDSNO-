@@ -119,6 +119,25 @@ python examples/simulate_discovery.py
 pytest tests/ -v
 ```
 
+### Controller startup entrypoint
+
+Use the package entrypoint as the canonical startup path:
+
+```bash
+python -m pdsno.main --role global --enable-rest
+```
+
+`scripts/run_controller.py` is retained only as a compatibility wrapper and delegates to `pdsno.main`.
+
+### Test-path realism note
+
+The default test suite intentionally mixes fast simulation tests with optional live-lab tests:
+
+- Most controller tests run with simulated execution paths (`simulate=True`) and mocks for deterministic CI behavior.
+- Live FRR/ContainerLab execution is covered by `tests/test_live.py`, which is skipped unless `PDSNO_LIVE_LAB=1` is set and the lab is running.
+
+This tradeoff is deliberate: fast default CI plus explicit opt-in hardware-path validation.
+
 ### What the simulation does
 
 The discovery simulation starts a Global Controller, validates a Regional Controller through the full 6-step challenge-response flow, creates a Local Controller, runs ARP/ICMP/SNMP scans against a simulated subnet, writes discovered devices to the NIB, sends a delta discovery report to the RC, and checks for MAC address collisions across controllers. You'll see the full audit trail in the output.

@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pdsno.datastore import NIBStore
-from pdsno.datastore.models import Device, DeviceStatus, Controller, ConfigRecord
+from pdsno.datastore.models import Device, DeviceStatus, Controller
 
 
 class DatabaseInitializer:
@@ -82,7 +82,7 @@ class DatabaseInitializer:
         print("✓ Schema initialized")
     
     def _init_sqlite_schema(self, drop_existing: bool):
-        """Initialize SQLite schema"""
+        """Initialize SQLite schema from canonical datastore/schema.sql."""
         db_file = Path(self.db_path)
         
         # Create directory if needed
@@ -93,191 +93,22 @@ class DatabaseInitializer:
             print("⚠️  Dropping existing database...")
             db_file.unlink()
         
-        # Connect and create schema
+        schema_path = Path(__file__).resolve().parent.parent / "pdsno" / "datastore" / "schema.sql"
+        if not schema_path.exists():
+            raise FileNotFoundError(f"Canonical schema file not found: {schema_path}")
+
+        print(f"Creating tables from {schema_path}...")
+        schema_sql = schema_path.read_text(encoding="utf-8")
+
         conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Create tables
-        print("Creating tables...")
-        
-        # 1. Devices table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS devices (
-                device_id TEXT PRIMARY KEY,
-                temp_scan_id TEXT,
-                ip_address TEXT NOT NULL,
-                mac_address TEXT UNIQUE NOT NULL,
-                hostname TEXT,
-                vendor TEXT,
-                device_type TEXT,
-                status TEXT NOT NULL,
-                first_seen TEXT NOT NULL,
-                last_seen TEXT NOT NULL,
-                managed_by_lc TEXT,
-                region TEXT,
-                version INTEGER DEFAULT 0,
-                metadata TEXT
-            )
-        """)
-        
-        # 2. Controllers table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS controllers (
-                controller_id TEXT PRIMARY KEY,
-                role TEXT NOT NULL,
-                region TEXT,
-                status TEXT NOT NULL,
-                validated_by TEXT,
-                validated_at TEXT,
-                public_key TEXT,
-                certificate TEXT,
-                capabilities TEXT,
-                metadata TEXT,
-                version INTEGER DEFAULT 0
-            )
-        """)
-        
-        # 3. Config records table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS config_records (
-                config_id TEXT PRIMARY KEY,
-                device_id TEXT NOT NULL,
-                config_lines TEXT NOT NULL,
-                created_by TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                approved_by TEXT,
-                approved_at TEXT,
-                executed_at TEXT,
-                status TEXT NOT NULL,
-                sensitivity TEXT NOT NULL,
-                version INTEGER DEFAULT 0,
-                FOREIGN KEY (device_id) REFERENCES devices(device_id)
-            )
-        """)
-        
-        # 4. Config approvals table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS config_approvals (
-                approval_id TEXT PRIMARY KEY,
-                config_id TEXT NOT NULL,
-                approver_id TEXT NOT NULL,
-                approved_at TEXT NOT NULL,
-                decision TEXT NOT NULL,
-                comments TEXT,
-                FOREIGN KEY (config_id) REFERENCES config_records(config_id)
-            )
-        """)
-        
-        # 5. Execution tokens table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS execution_tokens (
-                token_id TEXT PRIMARY KEY,
-                config_id TEXT NOT NULL,
-                device_id TEXT NOT NULL,
-                issued_by TEXT NOT NULL,
-                issued_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL,
-                signature TEXT NOT NULL,
-                used INTEGER DEFAULT 0,
-                FOREIGN KEY (config_id) REFERENCES config_records(config_id),
-                FOREIGN KEY (device_id) REFERENCES devices(device_id)
-            )
-        """)
-        
-        # 6. Backups table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS backups (
-                backup_id TEXT PRIMARY KEY,
-                device_id TEXT NOT NULL,
-                config_id TEXT,
-                config_snapshot TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                created_by TEXT NOT NULL,
-                metadata TEXT,
-                FOREIGN KEY (device_id) REFERENCES devices(device_id)
-            )
-        """)
-        
-        # 7. Events table (audit log)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS events (
-                event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
-                event_type TEXT NOT NULL,
-                controller_id TEXT,
-                device_id TEXT,
-                config_id TEXT,
-                details TEXT,
-                severity TEXT
-            )
-        """)
-        
-        # 8. Discovery reports table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS discovery_reports (
-                report_id TEXT PRIMARY KEY,
-                local_controller_id TEXT NOT NULL,
-                subnet TEXT NOT NULL,
-                scan_start TEXT NOT NULL,
-                scan_end TEXT NOT NULL,
-                devices_found INTEGER,
-                new_devices INTEGER,
-                metadata TEXT
-            )
-        """)
-        
-        # 9. Locks table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS locks (
-                lock_id TEXT PRIMARY KEY,
-                resource_type TEXT NOT NULL,
-                resource_id TEXT NOT NULL,
-                holder_id TEXT NOT NULL,
-                acquired_at TEXT NOT NULL,
-                expires_at TEXT,
-                UNIQUE(resource_type, resource_id)
-            )
-        """)
-        
-        # 10. Schema version table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS schema_version (
-                version TEXT PRIMARY KEY,
-                applied_at TEXT NOT NULL
-            )
-        """)
-        
-        # Insert schema version
-        cursor.execute(
-            "INSERT OR REPLACE INTO schema_version (version, applied_at) VALUES (?, ?)",
-            (self.SCHEMA_VERSION, datetime.now(timezone.utc).isoformat())
-        )
-        
-        # Create indexes
-        print("Creating indexes...")
-        
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_devices_mac ON devices(mac_address)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_devices_ip ON devices(ip_address)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_devices_status ON devices(status)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_devices_region ON devices(region)")
-        
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_controllers_role ON controllers(role)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_controllers_region ON controllers(region)")
-        
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_config_device ON config_records(device_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_config_status ON config_records(status)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_config_sensitivity ON config_records(sensitivity)")
-        
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_controller ON events(controller_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_device ON events(device_id)")
-        
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_locks_resource ON locks(resource_type, resource_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_locks_holder ON locks(holder_id)")
-        
-        conn.commit()
-        conn.close()
+        try:
+            conn.executescript(schema_sql)
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Run forward-compat schema alignment logic used by runtime NIBStore.
+        NIBStore(self.db_path, secret_key=self._get_nib_secret_key())
     
     def _init_postgres_schema(self, drop_existing: bool):
         """Initialize PostgreSQL schema"""
@@ -340,7 +171,7 @@ class DatabaseInitializer:
                 status=dev_data['status'],
                 first_seen=datetime.now(timezone.utc),
                 last_seen=datetime.now(timezone.utc),
-                managed_by_lc=dev_data['managed_by_lc'],
+                local_controller=dev_data['managed_by_lc'],
                 region=dev_data['region'],
                 metadata={}
             )
@@ -382,7 +213,7 @@ class DatabaseInitializer:
                 validated_at=datetime.now(timezone.utc) if ctrl_data.get('validated_by') else None,
                 public_key='ed25519-pubkey-placeholder',
                 certificate=None,
-                capabilities={},
+                capabilities=[],
                 metadata={}
             )
             
@@ -400,9 +231,7 @@ class DatabaseInitializer:
             
             # Check tables exist
             required_tables = [
-                'devices', 'controllers', 'config_records', 'config_approvals',
-                'execution_tokens', 'backups', 'events', 'discovery_reports',
-                'locks', 'schema_version'
+                'devices', 'configs', 'policies', 'events', 'locks', 'controllers'
             ]
             
             conn = sqlite3.connect(self.db_path)
@@ -417,12 +246,6 @@ class DatabaseInitializer:
                     print(f"  ✗ Table missing: {table}")
                     return False
                 print(f"  ✓ Table exists: {table}")
-            
-            # Check schema version
-            cursor.execute("SELECT version FROM schema_version")
-            version = cursor.fetchone()
-            if version:
-                print(f"  ✓ Schema version: {version[0]}")
             
             conn.close()
             
@@ -442,11 +265,17 @@ class DatabaseInitializer:
         cursor = conn.cursor()
         
         tables = [
-            'devices', 'controllers', 'config_records', 'config_approvals',
-            'execution_tokens', 'backups', 'events', 'discovery_reports', 'locks'
+            'devices', 'controllers', 'configs', 'policies', 'events', 'locks',
+            'config_records', 'config_approvals', 'execution_tokens', 'backups', 'discovery_reports'
         ]
         
         for table in tables:
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                (table,),
+            )
+            if not cursor.fetchone():
+                continue
             cursor.execute(f"SELECT COUNT(*) FROM {table}")
             count = cursor.fetchone()[0]
             print(f"  {table:25s}: {count:5d} rows")
@@ -555,7 +384,7 @@ def main():
         print(f"\nDatabase: {args.db}")
         print(f"Schema Version: {initializer.SCHEMA_VERSION}")
         print("\nNext steps:")
-        print("  1. Start controllers: python scripts/run_controller.py")
+        print("  1. Start controllers: python -m pdsno.main --role global --enable-rest")
         print("  2. Check database: sqlite3 config/pdsno.db '.tables'")
         print("  3. View data: python scripts/init_db.py --stats")
         print()

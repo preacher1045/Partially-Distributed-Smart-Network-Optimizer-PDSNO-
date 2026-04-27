@@ -45,46 +45,29 @@ from cleanup_old_data import (
  
  
 # ---------------------------------------------------------------------------
-# Schema helpers — mirror the real NIB schema exactly
+# Schema helpers
 # ---------------------------------------------------------------------------
- 
-_NIB_SCHEMA = """
-PRAGMA foreign_keys = ON;
- 
-CREATE TABLE IF NOT EXISTS configs (
-    config_id       TEXT PRIMARY KEY,
-    device_id       TEXT NOT NULL,
-    config_hash     TEXT NOT NULL DEFAULT '',
-    category        TEXT NOT NULL DEFAULT 'LOW',
-    status          TEXT NOT NULL DEFAULT 'PENDING',
-    proposed_by     TEXT,
-    approved_by     TEXT,
-    execution_token TEXT,
-    proposed_at     TEXT,
-    approved_at     TEXT,
-    executed_at     TEXT,
-    expiry          TEXT,
-    policy_version  TEXT,
-    rollback_payload TEXT,
-    config_data     TEXT,
-    reason          TEXT,
-    version         INTEGER NOT NULL DEFAULT 0
-);
- 
+
+_CANONICAL_SCHEMA = (
+    Path(__file__).resolve().parent.parent / "pdsno" / "datastore" / "schema.sql"
+).read_text(encoding="utf-8")
+
+# Legacy tables still supported by cleanup_old_data.py for backward compatibility.
+_LEGACY_COMPAT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS config_records (
-    config_id   TEXT PRIMARY KEY,
-    device_id   TEXT NOT NULL,
+    config_id    TEXT PRIMARY KEY,
+    device_id    TEXT NOT NULL,
     config_lines TEXT NOT NULL,
-    created_by  TEXT NOT NULL,
-    created_at  TEXT NOT NULL,
-    approved_by TEXT,
-    approved_at TEXT,
-    executed_at TEXT,
-    status      TEXT NOT NULL,
-    sensitivity TEXT NOT NULL,
-    version     INTEGER DEFAULT 0
+    created_by   TEXT NOT NULL,
+    created_at   TEXT NOT NULL,
+    approved_by  TEXT,
+    approved_at  TEXT,
+    executed_at  TEXT,
+    status       TEXT NOT NULL,
+    sensitivity  TEXT NOT NULL,
+    version      INTEGER DEFAULT 0
 );
- 
+
 CREATE TABLE IF NOT EXISTS config_approvals (
     approval_id  TEXT PRIMARY KEY,
     config_id    TEXT NOT NULL,
@@ -93,7 +76,7 @@ CREATE TABLE IF NOT EXISTS config_approvals (
     decision     TEXT NOT NULL,
     comments     TEXT
 );
- 
+
 CREATE TABLE IF NOT EXISTS execution_tokens (
     token_id   TEXT PRIMARY KEY,
     config_id  TEXT NOT NULL,
@@ -104,7 +87,7 @@ CREATE TABLE IF NOT EXISTS execution_tokens (
     signature  TEXT NOT NULL,
     used       INTEGER DEFAULT 0
 );
- 
+
 CREATE TABLE IF NOT EXISTS backups (
     backup_id       TEXT PRIMARY KEY,
     device_id       TEXT NOT NULL,
@@ -114,33 +97,7 @@ CREATE TABLE IF NOT EXISTS backups (
     created_by      TEXT NOT NULL,
     metadata        TEXT
 );
- 
-CREATE TABLE IF NOT EXISTS events (
-    event_id    TEXT PRIMARY KEY,
-    event_type  TEXT NOT NULL,
-    actor       TEXT NOT NULL,
-    subject     TEXT,
-    action      TEXT NOT NULL,
-    decision    TEXT,
-    timestamp   TEXT NOT NULL,
-    payload_ref TEXT,
-    notes       TEXT,
-    signature   TEXT NOT NULL,
-    details     TEXT NOT NULL DEFAULT '{}'
-);
- 
-CREATE TRIGGER IF NOT EXISTS prevent_event_update
-BEFORE UPDATE ON events
-BEGIN
-    SELECT RAISE(FAIL, 'Event log is immutable — updates not allowed');
-END;
- 
-CREATE TRIGGER IF NOT EXISTS prevent_event_delete
-BEFORE DELETE ON events
-BEGIN
-    SELECT RAISE(FAIL, 'Event log is immutable — deletions not allowed');
-END;
- 
+
 CREATE TABLE IF NOT EXISTS discovery_reports (
     report_id           TEXT PRIMARY KEY,
     local_controller_id TEXT NOT NULL,
@@ -151,53 +108,13 @@ CREATE TABLE IF NOT EXISTS discovery_reports (
     new_devices         INTEGER,
     metadata            TEXT
 );
- 
-CREATE TABLE IF NOT EXISTS locks (
-    lock_id            TEXT PRIMARY KEY,
-    lock_type          TEXT NOT NULL,
-    subject_id         TEXT NOT NULL,
-    held_by            TEXT NOT NULL,
-    acquired_at        TEXT NOT NULL,
-    expires_at         TEXT NOT NULL,
-    associated_request TEXT,
-    status             TEXT NOT NULL DEFAULT 'ACTIVE'
-);
- 
-CREATE TABLE IF NOT EXISTS policies (
-    policy_id       TEXT PRIMARY KEY,
-    policy_version  TEXT NOT NULL,
-    scope           TEXT NOT NULL,
-    target_region   TEXT,
-    content         TEXT NOT NULL,
-    distributed_by  TEXT NOT NULL,
-    distributed_at  TEXT,
-    valid_from      TEXT,
-    valid_until     TEXT,
-    is_active       INTEGER NOT NULL DEFAULT 1,
-    version         INTEGER NOT NULL DEFAULT 0
-);
- 
-CREATE TABLE IF NOT EXISTS devices (
-    device_id   TEXT PRIMARY KEY,
-    ip_address  TEXT NOT NULL,
-    mac_address TEXT UNIQUE NOT NULL,
-    status      TEXT NOT NULL DEFAULT 'active',
-    first_seen  TEXT,
-    last_seen   TEXT
-);
- 
-CREATE TABLE IF NOT EXISTS controllers (
-    controller_id TEXT PRIMARY KEY,
-    role          TEXT NOT NULL,
-    status        TEXT NOT NULL DEFAULT 'validating',
-    validated_at  TEXT
-);
 """
  
  
 def _make_db(path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(path))
-    conn.executescript(_NIB_SCHEMA)
+    conn.executescript(_CANONICAL_SCHEMA)
+    conn.executescript(_LEGACY_COMPAT_SCHEMA)
     conn.commit()
     return conn
  

@@ -1,0 +1,150 @@
+<mxfile host="65bd71144e">
+    <diagram id="adapter_tree_decision" name="Adapter Selection Decision Tree">
+        <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="1200" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                
+                <!-- Root Decision -->
+                <mxCell id="root" value="Device Type?" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="350" y="40" width="120" height="60" as="geometry"/>
+                </mxCell>
+                
+                <!-- First Level Branches -->
+                <!-- Cisco Branch -->
+                <mxCell id="cisco_check" value="Cisco Device?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="60" y="160" width="100" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="cisco_root_edge" edge="1" parent="1" source="root" target="cisco_check">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                
+                <!-- Juniper Branch -->
+                <mxCell id="juniper_check" value="Juniper Device?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="240" y="160" width="100" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="juniper_root_edge" edge="1" parent="1" source="root" target="juniper_check">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                
+                <!-- Arista Branch -->
+                <mxCell id="arista_check" value="Arista Device?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="420" y="160" width="100" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="arista_root_edge" edge="1" parent="1" source="root" target="arista_check">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                
+                <!-- Generic/NETCONF Branch -->
+                <mxCell id="generic_check" value="Generic/NETCONF?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="600" y="160" width="100" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="generic_root_edge" edge="1" parent="1" source="root" target="generic_check">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                
+                <!-- Cisco Adapter Selection -->
+                <mxCell id="cisco_ssh" value="IOS/IOS-XE" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="20" y="320" width="90" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="cisco_yes_edge" edge="1" parent="1" source="cisco_check" target="cisco_ssh">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint as="sourcePoint" x="85" y="260"/>
+                        <mxPoint as="targetPoint" x="65" y="320"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="cisco_ssh_label" value="Netmiko/SSH" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="20" y="285" width="60" height="20" as="geometry"/>
+                </mxCell>
+                
+                <mxCell id="cisco_aci" value="ACI Controller" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="120" y="320" width="90" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="cisco_aci_edge" edge="1" parent="1" source="cisco_check" target="cisco_aci">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint as="sourcePoint" x="110" y="260"/>
+                        <mxPoint as="targetPoint" x="165" y="320"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="cisco_aci_label" value="REST API" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="120" y="285" width="60" height="20" as="geometry"/>
+                </mxCell>
+                
+                <!-- Juniper Adapter Selection -->
+                <mxCell id="juniper_netconf" value="NETCONF/Yang" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="200" y="320" width="90" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="juniper_yes_edge" edge="1" parent="1" source="juniper_check" target="juniper_netconf">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint as="sourcePoint" x="265" y="260"/>
+                        <mxPoint as="targetPoint" x="245" y="320"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="juniper_label" value="PyEZ/eAPI" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="200" y="285" width="60" height="20" as="geometry"/>
+                </mxCell>
+                
+                <!-- Arista Adapter Selection -->
+                <mxCell id="arista_eapi" value="eAPI/CloudVision" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="380" y="320" width="90" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="arista_yes_edge" edge="1" parent="1" source="arista_check" target="arista_eapi">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint as="sourcePoint" x="445" y="260"/>
+                        <mxPoint as="targetPoint" x="425" y="320"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arista_label" value="REST API" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="380" y="285" width="60" height="20" as="geometry"/>
+                </mxCell>
+                
+                <!-- Generic/NETCONF Adapter -->
+                <mxCell id="generic_netconf" value="NETCONF Adapter" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="560" y="320" width="90" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="generic_yes_edge" edge="1" parent="1" source="generic_check" target="generic_netconf">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint as="sourcePoint" x="625" y="260"/>
+                        <mxPoint as="targetPoint" x="605" y="320"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="generic_label" value="RFC 6241" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="560" y="285" width="60" height="20" as="geometry"/>
+                </mxCell>
+                
+                <!-- Default Fallback -->
+                <mxCell id="fallback" value="Unsupported Device" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;" vertex="1" parent="1">
+                    <mxGeometry x="720" y="320" width="90" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="fallback_edge" edge="1" parent="1" source="generic_check" target="fallback">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint as="sourcePoint" x="660" y="210"/>
+                        <mxPoint as="targetPoint" x="755" y="320"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="fallback_label" value="No" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;" vertex="1" parent="1">
+                    <mxGeometry x="690" y="280" width="30" height="20" as="geometry"/>
+                </mxCell>
+                
+                <!-- Legend -->
+                <mxCell id="legend_title" value="Legend" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="430" width="100" height="20" as="geometry"/>
+                </mxCell>
+                
+                <mxCell id="legend_decision" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="460" width="40" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_decision_label" value="Decision Point" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;" vertex="1" parent="1">
+                    <mxGeometry x="90" y="465" width="100" height="30" as="geometry"/>
+                </mxCell>
+                
+                <mxCell id="legend_adapter" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="510" width="40" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_adapter_label" value="Adapter Implementation" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;" vertex="1" parent="1">
+                    <mxGeometry x="90" y="515" width="120" height="30" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

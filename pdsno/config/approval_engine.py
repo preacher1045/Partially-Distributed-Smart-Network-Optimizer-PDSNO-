@@ -12,23 +12,6 @@ Manages configuration approval workflows based on sensitivity:
 - MEDIUM: Regional Controller approval required
 - HIGH: Global Controller approval required
 
-Implements state machine with transitions and timeout handling.
-"""
-
-# Copyright (C) 2025 TENKEI
-# SPDX-License-Identifier: AGPL-3.0-or-later
-#
-# This file is part of PDSNO.
-# See the LICENSE file in the project root for license information.
-
-"""
-Approval Workflow Engine
-
-Manages configuration approval workflows based on sensitivity:
-- LOW: Automatic approval (no human intervention)
-- MEDIUM: Regional Controller approval required
-- HIGH: Global Controller approval required
-
 Fix (2026-03-21):
   - Requests are now persisted to NIB on submit_request() so the RC's
     engine instance can retrieve them. Previously both LC and RC held
@@ -493,45 +476,6 @@ class ApprovalWorkflowEngine:
         if not request.submitted_at:
             return False
         return (datetime.now(timezone.utc) - request.submitted_at) > self.approval_timeout
-
-    # def _is_expired(self, request: ApprovalRequest) -> bool:
-    #     """Check if request has expired"""
-    #     if not request.submitted_at:
-    #         return False
-
-    #     age = datetime.now(timezone.utc) - request.submitted_at
-    #     return age > self.approval_timeout
-
-    # def get_request(self, request_id: str) -> Optional[ApprovalRequest]:
-    #     """Get request by ID"""
-    #     return self.requests.get(request_id)
-
-    # def get_pending_requests(self) -> List[ApprovalRequest]:
-    #     """Get all pending approval requests"""
-    #     return [
-    #         req for req in self.requests.values()
-    #         if req.state == ApprovalState.PENDING_APPROVAL
-    #     ]
-
-    # def cleanup_expired_requests(self) -> int:
-    #     """
-    #     Mark expired requests.
-
-    #     Returns:
-    #         Number of requests expired
-    #     """
-    #     count = 0
-
-    #     for request in self.requests.values():
-    #         if (
-    #             request.state == ApprovalState.PENDING_APPROVAL and
-    #             self._is_expired(request)
-    #         ):
-    #             request.state = ApprovalState.EXPIRED
-    #             count += 1
-    #             self.logger.info(f"Expired request {request.request_id}")
-
-    #     return count
 
 
 # Example usage:

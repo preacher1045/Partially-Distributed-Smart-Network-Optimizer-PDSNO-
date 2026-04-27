@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
-    <diagram id="KHjxJsEfLvakqzV_EUQO" name="Page-1">
-        <mxGraphModel dx="1145" dy="1088" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <diagram id="KHjxJsEfLvakqzV_EUQO" name="Multi-Vendor Translation Comparison">
+        <mxGraphModel dx="1145" dy="1088" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="1200" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -67,7 +67,7 @@
                 <mxCell id="15" value="vlan 100&lt;div&gt;name Engineering&lt;/div&gt;&lt;div&gt;exit&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
                     <mxGeometry x="80" y="510" width="170" height="110" as="geometry"/>
                 </mxCell>
-                <mxCell id="16" value="set vlans&lt;span style=&quot;color: rgb(63, 63, 63); background-color: transparent;&quot;&gt;&amp;nbsp;Engineering&lt;/span&gt;&lt;div&gt;&lt;div&gt;vlan_id 100&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+                <mxCell id="16" value="set vlans&amp;nbsp;Engineering&lt;div&gt;&lt;div&gt;vlan_id 100&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
                     <mxGeometry x="290" y="510" width="170" height="110" as="geometry"/>
                 </mxCell>
                 <mxCell id="17" value="vlan 100&lt;div&gt;name Engineering&lt;/div&gt;&lt;div&gt;state active&lt;/div&gt;&lt;div&gt;exit&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
